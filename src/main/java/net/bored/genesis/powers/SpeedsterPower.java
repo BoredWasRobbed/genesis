@@ -41,7 +41,6 @@ public class SpeedsterPower implements ISkillPower {
     // --- Power State ---
     private boolean isSpeedActive = true;
     private boolean isPhasing = false;
-    private boolean wasFlyingBeforePhase = false;
     private int wallRunTicks = 0;
     private static final int MAX_WALL_RUN_TICKS = 40; // 2 seconds
 
@@ -67,14 +66,14 @@ public class SpeedsterPower implements ISkillPower {
     private void handlePhasing(Player player) {
         if (isPhasing) {
             player.noPhysics = true;
-            player.getAbilities().flying = true; // Allow flight control while phasing
+            // Manually apply gravity since noPhysics disables it.
+            // This prevents the player from flying and makes them fall through blocks.
+            if (!player.getAbilities().invulnerable) { // Don't apply gravity if player is in creative mode
+                player.setDeltaMovement(player.getDeltaMovement().x, player.getDeltaMovement().y - 0.08, player.getDeltaMovement().z);
+            }
         } else if (player.noPhysics) {
             // This block runs once when phasing is turned off
             player.noPhysics = false;
-            player.getAbilities().mayfly = wasFlyingBeforePhase;
-            if (!wasFlyingBeforePhase) {
-                player.getAbilities().flying = false;
-            }
             // Teleport to a safe location to avoid getting stuck
             teleportToSafeLocation(player);
         }
@@ -96,14 +95,16 @@ public class SpeedsterPower implements ISkillPower {
     private void handleWallRunning(Player player) {
         if (isSkillUnlocked(SKILL_WALL_RUN) && player.horizontalCollision && !player.onGround() && player.isSprinting()) {
             if (wallRunTicks < MAX_WALL_RUN_TICKS) {
-                Vec3 motion = player.getDeltaMovement();
-                player.setDeltaMovement(motion.x, 0.15, motion.z); // Apply upward motion
+                Vec3 lookAngle = player.getLookAngle();
+                // Use the look angle to influence the direction of wall running
+                player.setDeltaMovement(lookAngle.x * 0.5, lookAngle.y * 0.5, lookAngle.z * 0.5);
                 wallRunTicks++;
             }
         } else {
             wallRunTicks = 0;
         }
     }
+
 
     @Override
     public void onPlayerUpdate(Player player) {
@@ -132,11 +133,6 @@ public class SpeedsterPower implements ISkillPower {
         if (skillId.equals(SKILL_PHASING)) {
             this.isPhasing = !this.isPhasing;
             player.sendSystemMessage(Component.literal("Phasing " + (this.isPhasing ? "Enabled" : "Disabled")));
-            if (this.isPhasing) {
-                // Store original flight state and enable flying
-                this.wasFlyingBeforePhase = player.getAbilities().mayfly;
-                player.getAbilities().mayfly = true;
-            }
         }
     }
 
@@ -144,7 +140,6 @@ public class SpeedsterPower implements ISkillPower {
     public void onRemoved(Player player) {
         player.removeEffect(MobEffects.MOVEMENT_SPEED);
         player.noPhysics = false;
-        player.getAbilities().mayfly = wasFlyingBeforePhase; // Restore original flight state
         this.level = 1;
         this.experience = 0;
         this.xpToNextLevel = 100;
