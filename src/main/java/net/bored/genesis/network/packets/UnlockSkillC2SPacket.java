@@ -9,6 +9,8 @@ import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
 import net.minecraftforge.network.NetworkEvent;
 
 import java.util.Set;
@@ -78,10 +80,12 @@ public class UnlockSkillC2SPacket {
                             skillPower.unlockSkill(skillId);
                             player.sendSystemMessage(Component.literal("Unlocked skill: " + skill.getName().getString()));
 
+                            player.level().playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 0.75F, 1.0F);
+
                             Set<ResourceLocation> unlocked = tree.getAllSkills().keySet().stream()
                                     .filter(skillPower::isSkillUnlocked)
                                     .collect(Collectors.toSet());
-                            PacketHandler.sendToPlayer(new UpdateSkillTreeS2CPacket(skillPower.getSkillPoints(), unlocked, skillPower.getLevel(), skillPower.getExperience(), skillPower.getXpNeededForNextLevel()), player);
+                            PacketHandler.sendToPlayer(new UpdateSkillTreeS2CPacket(skillPower.getSkillPoints(), unlocked, skillPower.getLevel(), skillPower.getExperience(), skillPower.getXpNeededForNextLevel(), skillPower.getAbilityBindings()), player);
                         }
                     });
                 });

@@ -1,6 +1,8 @@
 package net.bored.genesis.network;
 
 import net.bored.genesis.Genesis;
+import net.bored.genesis.network.packets.ActivateAbilityC2SPacket;
+import net.bored.genesis.network.packets.BindAbilityC2SPacket;
 import net.bored.genesis.network.packets.OpenSkillTreeS2CPacket;
 import net.bored.genesis.network.packets.RequestOpenSkillTreeC2SPacket;
 import net.bored.genesis.network.packets.UnlockSkillC2SPacket;
@@ -28,28 +30,14 @@ public class PacketHandler {
 
     public static void register() {
         // C2S
-        INSTANCE.messageBuilder(UnlockSkillC2SPacket.class, id(), NetworkDirection.PLAY_TO_SERVER)
-                .encoder(UnlockSkillC2SPacket::toBytes)
-                .decoder(UnlockSkillC2SPacket::new)
-                .consumerMainThread(UnlockSkillC2SPacket::handle)
-                .add();
-        INSTANCE.messageBuilder(RequestOpenSkillTreeC2SPacket.class, id(), NetworkDirection.PLAY_TO_SERVER)
-                .encoder(RequestOpenSkillTreeC2SPacket::toBytes)
-                .decoder(RequestOpenSkillTreeC2SPacket::new)
-                .consumerMainThread(RequestOpenSkillTreeC2SPacket::handle)
-                .add();
+        INSTANCE.messageBuilder(UnlockSkillC2SPacket.class, id(), NetworkDirection.PLAY_TO_SERVER).encoder(UnlockSkillC2SPacket::toBytes).decoder(UnlockSkillC2SPacket::new).consumerMainThread(UnlockSkillC2SPacket::handle).add();
+        INSTANCE.messageBuilder(RequestOpenSkillTreeC2SPacket.class, id(), NetworkDirection.PLAY_TO_SERVER).encoder(RequestOpenSkillTreeC2SPacket::toBytes).decoder(RequestOpenSkillTreeC2SPacket::new).consumerMainThread(RequestOpenSkillTreeC2SPacket::handle).add();
+        INSTANCE.messageBuilder(ActivateAbilityC2SPacket.class, id(), NetworkDirection.PLAY_TO_SERVER).encoder(ActivateAbilityC2SPacket::toBytes).decoder(ActivateAbilityC2SPacket::new).consumerMainThread(ActivateAbilityC2SPacket::handle).add();
+        INSTANCE.messageBuilder(BindAbilityC2SPacket.class, id(), NetworkDirection.PLAY_TO_SERVER).encoder(BindAbilityC2SPacket::toBytes).decoder(BindAbilityC2SPacket::new).consumerMainThread(BindAbilityC2SPacket::handle).add();
 
         // S2C
-        INSTANCE.messageBuilder(OpenSkillTreeS2CPacket.class, id(), NetworkDirection.PLAY_TO_CLIENT)
-                .encoder(OpenSkillTreeS2CPacket::toBytes)
-                .decoder(OpenSkillTreeS2CPacket::new)
-                .consumerMainThread(OpenSkillTreeS2CPacket::handle)
-                .add();
-        INSTANCE.messageBuilder(UpdateSkillTreeS2CPacket.class, id(), NetworkDirection.PLAY_TO_CLIENT)
-                .encoder(UpdateSkillTreeS2CPacket::toBytes)
-                .decoder(UpdateSkillTreeS2CPacket::new)
-                .consumerMainThread(UpdateSkillTreeS2CPacket::handle)
-                .add();
+        INSTANCE.messageBuilder(OpenSkillTreeS2CPacket.class, id(), NetworkDirection.PLAY_TO_CLIENT).encoder(OpenSkillTreeS2CPacket::toBytes).decoder(OpenSkillTreeS2CPacket::new).consumerMainThread(OpenSkillTreeS2CPacket::handle).add();
+        INSTANCE.messageBuilder(UpdateSkillTreeS2CPacket.class, id(), NetworkDirection.PLAY_TO_CLIENT).encoder(UpdateSkillTreeS2CPacket::toBytes).decoder(UpdateSkillTreeS2CPacket::new).consumerMainThread(UpdateSkillTreeS2CPacket::handle).add();
     }
 
     public static <MSG> void sendToServer(MSG message) {

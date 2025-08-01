@@ -12,7 +12,6 @@ import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.fml.DistExecutor;
 import net.minecraftforge.network.NetworkEvent;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -30,6 +29,7 @@ public class OpenSkillTreeS2CPacket {
     private final int experience;
     private final int xpToNextLevel;
     private final List<Skill.Deserializer> skillDeserializers;
+    private final Map<Integer, ResourceLocation> abilityBindings;
 
     public OpenSkillTreeS2CPacket(ISkillPower skillPower, SkillTree skillTree) {
         this.powerId = skillPower.getRegistryName();
@@ -43,6 +43,7 @@ public class OpenSkillTreeS2CPacket {
         this.skillDeserializers = skillTree.getAllSkills().values().stream()
                 .map(Skill.Deserializer::new)
                 .collect(Collectors.toList());
+        this.abilityBindings = new HashMap<>(skillPower.getAbilityBindings());
     }
 
     public OpenSkillTreeS2CPacket(FriendlyByteBuf buf) {
@@ -53,6 +54,7 @@ public class OpenSkillTreeS2CPacket {
         this.experience = buf.readInt();
         this.xpToNextLevel = buf.readInt();
         this.skillDeserializers = buf.readList(Skill.Deserializer::new);
+        this.abilityBindings = buf.readMap(FriendlyByteBuf::readInt, FriendlyByteBuf::readResourceLocation);
     }
 
     public void toBytes(FriendlyByteBuf buf) {
@@ -63,6 +65,7 @@ public class OpenSkillTreeS2CPacket {
         buf.writeInt(experience);
         buf.writeInt(xpToNextLevel);
         buf.writeCollection(skillDeserializers, (b, ds) -> ds.toBytes(b));
+        buf.writeMap(abilityBindings, FriendlyByteBuf::writeInt, FriendlyByteBuf::writeResourceLocation);
     }
 
     public boolean handle(Supplier<NetworkEvent.Context> supplier) {
@@ -75,7 +78,7 @@ public class OpenSkillTreeS2CPacket {
                     skills.put(skill.getId(), skill);
                 }
                 SkillTree clientTree = new SkillTree(skills);
-                Minecraft.getInstance().setScreen(new SkillTreeScreen(powerId, clientTree, unlockedSkills, skillPoints, level, experience, xpToNextLevel));
+                Minecraft.getInstance().setScreen(new SkillTreeScreen(powerId, clientTree, unlockedSkills, skillPoints, level, experience, xpToNextLevel, abilityBindings));
             });
         });
         return true;

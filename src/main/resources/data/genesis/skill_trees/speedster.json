@@ -7,7 +7,8 @@
       "cost": 1,
       "prerequisites": [],
       "x": 10,
-      "y": 50
+      "y": 50,
+      "type": "PASSIVE"
     },
     {
       "id": "genesis:speedster/speed_2",
@@ -18,7 +19,8 @@
         "genesis:speedster/speed_1"
       ],
       "x": 50,
-      "y": 50
+      "y": 50,
+      "type": "PASSIVE"
     },
     {
       "id": "genesis:speedster/speed_3",
@@ -29,7 +31,8 @@
         "genesis:speedster/speed_2"
       ],
       "x": 90,
-      "y": 50
+      "y": 50,
+      "type": "PASSIVE"
     },
     {
       "id": "genesis:speedster/wall_run",
@@ -40,7 +43,8 @@
         "genesis:speedster/speed_1"
       ],
       "x": 30,
-      "y": 80
+      "y": 80,
+      "type": "ACTIVE"
     },
     {
       "id": "genesis:speedster/phasing",
@@ -51,7 +55,8 @@
         "genesis:speedster/speed_2"
       ],
       "x": 70,
-      "y": 20
+      "y": 20,
+      "type": "ACTIVE"
     }
   ]
 }

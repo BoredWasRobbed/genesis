@@ -34,10 +34,7 @@ public class Genesis {
         PowerRegistry.POWER_REGISTRY.register(modEventBus);
 
         modEventBus.addListener(this::commonSetup);
-
-        // Register the main mod class to the FORGE event bus to handle server events
         MinecraftForge.EVENT_BUS.register(this);
-        // Register other handlers
         MinecraftForge.EVENT_BUS.register(new CapabilityEvents());
     }
 
@@ -53,7 +50,6 @@ public class Genesis {
         GenesisCommands.register(event.getServer().getCommands().getDispatcher());
     }
 
-    // This event is now correctly handled by the main class instance
     @SubscribeEvent
     public void onAddReloadListener(AddReloadListenerEvent event) {
         event.addListener(SKILL_TREE_MANAGER);
@@ -69,6 +65,11 @@ public class Genesis {
         @SubscribeEvent
         public static void onRegisterKeys(RegisterKeyMappingsEvent event) {
             event.register(Keybindings.OPEN_SKILL_TREE_KEY);
+            event.register(Keybindings.ABILITY_1_KEY);
+            event.register(Keybindings.ABILITY_2_KEY);
+            event.register(Keybindings.ABILITY_3_KEY);
+            event.register(Keybindings.ABILITY_4_KEY);
+            event.register(Keybindings.ABILITY_5_KEY);
         }
     }
 }

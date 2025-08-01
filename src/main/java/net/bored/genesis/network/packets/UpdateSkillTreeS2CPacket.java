@@ -9,14 +9,12 @@ import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.fml.DistExecutor;
 import net.minecraftforge.network.NetworkEvent;
 
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Supplier;
 
-/**
- * S2C packet sent from the server to the client to sync skill tree data
- * after a skill has been successfully unlocked or XP has changed.
- */
 public class UpdateSkillTreeS2CPacket {
 
     private final int skillPoints;
@@ -24,13 +22,15 @@ public class UpdateSkillTreeS2CPacket {
     private final int level;
     private final int experience;
     private final int xpToNextLevel;
+    private final Map<Integer, ResourceLocation> abilityBindings;
 
-    public UpdateSkillTreeS2CPacket(int skillPoints, Set<ResourceLocation> unlockedSkills, int level, int experience, int xpToNextLevel) {
+    public UpdateSkillTreeS2CPacket(int skillPoints, Set<ResourceLocation> unlockedSkills, int level, int experience, int xpToNextLevel, Map<Integer, ResourceLocation> abilityBindings) {
         this.skillPoints = skillPoints;
         this.unlockedSkills = new HashSet<>(unlockedSkills);
         this.level = level;
         this.experience = experience;
         this.xpToNextLevel = xpToNextLevel;
+        this.abilityBindings = new HashMap<>(abilityBindings);
     }
 
     public UpdateSkillTreeS2CPacket(FriendlyByteBuf buf) {
@@ -39,6 +39,7 @@ public class UpdateSkillTreeS2CPacket {
         this.level = buf.readInt();
         this.experience = buf.readInt();
         this.xpToNextLevel = buf.readInt();
+        this.abilityBindings = buf.readMap(FriendlyByteBuf::readInt, FriendlyByteBuf::readResourceLocation);
     }
 
     public void toBytes(FriendlyByteBuf buf) {
@@ -47,6 +48,7 @@ public class UpdateSkillTreeS2CPacket {
         buf.writeInt(level);
         buf.writeInt(experience);
         buf.writeInt(xpToNextLevel);
+        buf.writeMap(abilityBindings, FriendlyByteBuf::writeInt, FriendlyByteBuf::writeResourceLocation);
     }
 
     public boolean handle(Supplier<NetworkEvent.Context> supplier) {
@@ -55,7 +57,7 @@ public class UpdateSkillTreeS2CPacket {
             DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> {
                 Screen currentScreen = Minecraft.getInstance().screen;
                 if (currentScreen instanceof SkillTreeScreen skillTreeScreen) {
-                    skillTreeScreen.updateData(unlockedSkills, skillPoints, level, experience, xpToNextLevel);
+                    skillTreeScreen.updateData(unlockedSkills, skillPoints, level, experience, xpToNextLevel, abilityBindings);
                 }
             });
         });

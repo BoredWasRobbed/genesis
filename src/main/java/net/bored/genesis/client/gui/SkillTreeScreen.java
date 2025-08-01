@@ -1,26 +1,22 @@
 package net.bored.genesis.client.gui;
 
-import com.mojang.blaze3d.systems.RenderSystem;
 import net.bored.genesis.client.gui.widgets.SkillWidget;
 import net.bored.genesis.core.skills.Skill;
 import net.bored.genesis.core.skills.SkillTree;
 import net.bored.genesis.network.PacketHandler;
+import net.bored.genesis.network.packets.BindAbilityC2SPacket;
 import net.bored.genesis.network.packets.UnlockSkillC2SPacket;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.util.Mth;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 
 public class SkillTreeScreen extends Screen {
-
-    private static final int BORDER_MARGIN = 30;
 
     private final ResourceLocation powerId;
     private final SkillTree skillTree;
@@ -29,17 +25,18 @@ public class SkillTreeScreen extends Screen {
     private int level;
     private int experience;
     private int xpToNextLevel;
+    private Map<Integer, ResourceLocation> abilityBindings;
 
     private final Map<ResourceLocation, SkillWidget> skillWidgets = new HashMap<>();
+    private final Button[] abilitySlotButtons = new Button[5];
 
-    // --- Panning Variables ---
-    private double panX = 0;
-    private double panY = 0;
-    private boolean isDragging = false;
-    private double dragStartX, dragStartY;
-    private double minPanX = 0, maxPanX = 0, minPanY = 0, maxPanY = 0;
+    private ResourceLocation selectedSkillForBinding = null;
 
-    public SkillTreeScreen(ResourceLocation powerId, SkillTree skillTree, Set<ResourceLocation> unlockedSkills, int skillPoints, int level, int experience, int xpToNextLevel) {
+    private int contentCenterX = 0;
+    private int contentCenterY = 0;
+    private static final int HORIZONTAL_OFFSET = 60; // Pushes the tree to the right
+
+    public SkillTreeScreen(ResourceLocation powerId, SkillTree skillTree, Set<ResourceLocation> unlockedSkills, int skillPoints, int level, int experience, int xpToNextLevel, Map<Integer, ResourceLocation> abilityBindings) {
         super(Component.literal("Skill Tree"));
         this.powerId = powerId;
         this.skillTree = skillTree;
@@ -48,15 +45,19 @@ public class SkillTreeScreen extends Screen {
         this.level = level;
         this.experience = experience;
         this.xpToNextLevel = xpToNextLevel;
+        this.abilityBindings = abilityBindings;
     }
 
-    public void updateData(Set<ResourceLocation> newUnlockedSkills, int newSkillPoints, int newLevel, int newExperience, int newXpToNextLevel) {
+    public void updateData(Set<ResourceLocation> newUnlockedSkills, int newSkillPoints, int newLevel, int newExperience, int newXpToNextLevel, Map<Integer, ResourceLocation> newAbilityBindings) {
         this.unlockedSkills = newUnlockedSkills;
         this.skillPoints = newSkillPoints;
         this.level = newLevel;
         this.experience = newExperience;
         this.xpToNextLevel = newXpToNextLevel;
+        this.abilityBindings = newAbilityBindings;
         this.populateSkillWidgets();
+        this.updateAbilitySlotButtons();
+        this.setFocused(null);
     }
 
     private void populateSkillWidgets() {
@@ -75,54 +76,69 @@ public class SkillTreeScreen extends Screen {
                 state = SkillWidget.SkillState.LOCKED;
             }
 
-            // The widget's position is its skill coordinate plus the current pan
-            int widgetX = skill.getSkillX() + (int)panX;
-            int widgetY = skill.getSkillY() + (int)panY;
+            int widgetX = (this.width / 2) - this.contentCenterX + skill.getSkillX() + HORIZONTAL_OFFSET;
+            int widgetY = (this.height / 2) - this.contentCenterY + skill.getSkillY();
 
             SkillWidget widget = new SkillWidget(widgetX, widgetY, skill, state);
             this.skillWidgets.put(skill.getId(), widget);
             this.addRenderableWidget(widget);
         }
+
+        // Re-add ability buttons after clearing
+        for (int i = 0; i < 5; i++) {
+            this.addRenderableWidget(this.abilitySlotButtons[i]);
+        }
     }
 
-    private void calculatePanBounds() {
+    private void updateAbilitySlotButtons() {
+        for (int i = 0; i < 5; i++) {
+            final int slot = i; // Create an effectively final variable for the lambda
+            ResourceLocation boundSkillId = this.abilityBindings.get(slot);
+            if (boundSkillId != null) {
+                skillTree.getSkill(boundSkillId).ifPresent(skill -> {
+                    abilitySlotButtons[slot].setMessage(skill.getName());
+                });
+            } else {
+                abilitySlotButtons[slot].setMessage(Component.literal("[ ]"));
+            }
+        }
+    }
+
+    private void calculateContentCenter() {
         if (skillTree.getAllSkills().isEmpty()) {
-            this.minPanX = this.maxPanX = 0;
-            this.minPanY = this.maxPanY = 0;
+            this.contentCenterX = 0;
+            this.contentCenterY = 0;
             return;
         }
 
-        int contentMinX = skillTree.getAllSkills().values().stream().mapToInt(Skill::getSkillX).min().orElse(0);
-        int contentMaxX = skillTree.getAllSkills().values().stream().mapToInt(s -> s.getSkillX() + 26).max().orElse(0);
-        int contentMinY = skillTree.getAllSkills().values().stream().mapToInt(Skill::getSkillY).min().orElse(0);
-        int contentMaxY = skillTree.getAllSkills().values().stream().mapToInt(s -> s.getSkillY() + 26).max().orElse(0);
+        int minX = skillTree.getAllSkills().values().stream().mapToInt(Skill::getSkillX).min().orElse(0);
+        int maxX = skillTree.getAllSkills().values().stream().mapToInt(s -> s.getSkillX() + 26).max().orElse(0);
+        int minY = skillTree.getAllSkills().values().stream().mapToInt(Skill::getSkillY).min().orElse(0);
+        int maxY = skillTree.getAllSkills().values().stream().mapToInt(s -> s.getSkillY() + 26).max().orElse(0);
 
-        int contentWidth = contentMaxX - contentMinX;
-        int contentHeight = contentMaxY - contentMinY;
-
-        // --- Ground-up Rewrite of Panning Logic ---
-        if (contentWidth > this.width) {
-            this.minPanX = this.width - contentMaxX - BORDER_MARGIN;
-            this.maxPanX = -contentMinX + BORDER_MARGIN;
-        } else {
-            this.minPanX = this.maxPanX = (this.width - contentWidth) / 2.0 - contentMinX;
-        }
-
-        if (contentHeight > this.height) {
-            this.minPanY = this.height - contentMaxY - BORDER_MARGIN;
-            this.maxPanY = -contentMinY + BORDER_MARGIN;
-        } else {
-            this.minPanY = this.maxPanY = (this.height - contentHeight) / 2.0 - contentMinY;
-        }
+        this.contentCenterX = minX + (maxX - minX) / 2;
+        this.contentCenterY = minY + (maxY - minY) / 2;
     }
 
     @Override
     protected void init() {
         super.init();
-        calculatePanBounds();
-        this.panX = Mth.clamp((minPanX + maxPanX) / 2.0, minPanX, maxPanX);
-        this.panY = Mth.clamp((minPanY + maxPanY) / 2.0, minPanY, maxPanY);
+        calculateContentCenter();
+
+        for (int i = 0; i < 5; i++) {
+            final int slot = i;
+            this.abilitySlotButtons[i] = Button.builder(Component.literal("[ ]"), (btn) -> {
+                if (this.selectedSkillForBinding != null) {
+                    PacketHandler.sendToServer(new BindAbilityC2SPacket(slot, this.selectedSkillForBinding));
+                    this.abilityBindings.put(slot, this.selectedSkillForBinding);
+                    this.selectedSkillForBinding = null;
+                    updateAbilitySlotButtons();
+                }
+            }).bounds(10, 60 + (i * 25), 100, 20).build();
+        }
+
         populateSkillWidgets();
+        updateAbilitySlotButtons();
     }
 
     @Override
@@ -132,16 +148,20 @@ public class SkillTreeScreen extends Screen {
         renderLines(guiGraphics);
         super.render(guiGraphics, mouseX, mouseY, partialTick);
 
-        guiGraphics.fill(5, 5, 120, 50, 0x80000000);
+        guiGraphics.fill(5, 5, 120, 55, 0x80000000);
         guiGraphics.drawString(this.font, this.title, 10, 10, 0xFFFFFF);
         guiGraphics.drawString(this.font, "Lvl: " + this.level + " (" + this.experience + "/" + this.xpToNextLevel + ")", 10, 25, 0xFFFFFF);
-        guiGraphics.drawString(this.font, "SP: " + this.skillPoints, 10, 35, 0xFFFFFF);
+        guiGraphics.drawString(this.font, "SP: " + this.skillPoints, 10, 40, 0xFFFFFF);
 
         for (SkillWidget widget : this.skillWidgets.values()) {
             if (widget.isHoveredOrFocused()) {
                 guiGraphics.renderComponentTooltip(this.font, widget.getSkillTooltip(), mouseX, mouseY);
                 break;
             }
+        }
+
+        if (this.selectedSkillForBinding != null) {
+            guiGraphics.drawCenteredString(this.font, "Binding Skill... (Press an ability slot)", this.width / 2, 10, 0xFFFF55);
         }
     }
 
@@ -150,59 +170,53 @@ public class SkillTreeScreen extends Screen {
             for (ResourceLocation prereqId : skill.getPrerequisites()) {
                 Skill prereqSkill = this.skillTree.getSkill(prereqId).orElse(null);
                 if (prereqSkill != null) {
-                    int x1 = skill.getSkillX() + 13 + (int)panX;
-                    int y1 = skill.getSkillY() + 13 + (int)panY;
-                    int x2 = prereqSkill.getSkillX() + 13 + (int)panX;
-                    int y2 = prereqSkill.getSkillY() + 13 + (int)panY;
+                    int x1 = (this.width / 2) - this.contentCenterX + skill.getSkillX() + 13 + HORIZONTAL_OFFSET;
+                    int y1 = (this.height / 2) - this.contentCenterY + skill.getSkillY() + 13;
+                    int x2 = (this.width / 2) - this.contentCenterX + prereqSkill.getSkillX() + 13 + HORIZONTAL_OFFSET;
+                    int y2 = (this.height / 2) - this.contentCenterY + prereqSkill.getSkillY() + 13;
 
                     boolean unlocked = unlockedSkills.contains(skill.getId()) && unlockedSkills.contains(prereqId);
                     int color = unlocked ? 0xFFFFFFFF : 0xFF808080;
 
-                    guiGraphics.hLine(x2, x1, y2, color);
-                    guiGraphics.vLine(x1, y2, y1, color);
+                    drawLine(guiGraphics, x1, y1, x2, y2, color);
                 }
             }
+        }
+    }
+
+    private void drawLine(GuiGraphics guiGraphics, int x1, int y1, int x2, int y2, int color) {
+        int dx = Math.abs(x2 - x1);
+        int dy = -Math.abs(y2 - y1);
+        int sx = x1 < x2 ? 1 : -1;
+        int sy = y1 < y2 ? 1 : -1;
+        int err = dx + dy;
+        while (true) {
+            guiGraphics.fill(x1, y1, x1 + 1, y1 + 1, color);
+            if (x1 == x2 && y1 == y2) break;
+            int e2 = 2 * err;
+            if (e2 >= dy) { err += dy; x1 += sx; }
+            if (e2 <= dx) { err += dx; y1 += sy; }
         }
     }
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (button == 0) {
-            for (SkillWidget widget : this.skillWidgets.values()) {
-                if (widget.isMouseOver(mouseX, mouseY)) {
-                    if (widget.state == SkillWidget.SkillState.CAN_UNLOCK) {
-                        PacketHandler.sendToServer(new UnlockSkillC2SPacket(this.powerId, widget.skill.getId()));
-                        return true;
-                    }
+        // Corrected click handling logic
+        for (SkillWidget widget : this.skillWidgets.values()) {
+            if (widget.isMouseOver(mouseX, mouseY)) {
+                if (button == 0 && widget.state == SkillWidget.SkillState.CAN_UNLOCK) {
+                    PacketHandler.sendToServer(new UnlockSkillC2SPacket(this.powerId, widget.skill.getId()));
+                    return true;
+                }
+                if (button == 1 && widget.state == SkillWidget.SkillState.UNLOCKED && widget.skill.getType() == Skill.SkillType.ACTIVE) {
+                    this.selectedSkillForBinding = widget.skill.getId();
+                    return true;
                 }
             }
         }
-        if (button == 1) {
-            this.isDragging = true;
-            this.dragStartX = mouseX - panX;
-            this.dragStartY = mouseY - panY;
-            return true;
-        }
+
+        // Handle clicks on other widgets (like the ability buttons)
         return super.mouseClicked(mouseX, mouseY, button);
-    }
-
-    @Override
-    public boolean mouseReleased(double pMouseX, double pMouseY, int pButton) {
-        if (pButton == 1) {
-            this.isDragging = false;
-        }
-        return super.mouseReleased(pMouseX, pMouseY, pButton);
-    }
-
-    @Override
-    public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
-        if (this.isDragging && button == 1) {
-            this.panX = Mth.clamp(mouseX - this.dragStartX, this.minPanX, this.maxPanX);
-            this.panY = Mth.clamp(mouseY - this.dragStartY, this.minPanY, this.maxPanY);
-            populateSkillWidgets();
-            return true;
-        }
-        return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
     }
 
     @Override

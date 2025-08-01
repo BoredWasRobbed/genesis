@@ -1,4 +1,9 @@
 {
   "key.category.genesis": "Genesis",
-  "key.genesis.open_skill_tree": "Open Skill Tree"
+  "key.genesis.open_skill_tree": "Open Skill Tree",
+  "key.genesis.ability_1": "Ability 1",
+  "key.genesis.ability_2": "Ability 2",
+  "key.genesis.ability_3": "Ability 3",
+  "key.genesis.ability_4": "Ability 4",
+  "key.genesis.ability_5": "Ability 5"
 }

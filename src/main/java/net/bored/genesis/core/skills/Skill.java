@@ -10,15 +10,21 @@ import java.util.stream.Collectors;
 
 public class Skill {
 
+    public enum SkillType {
+        PASSIVE,
+        ACTIVE
+    }
+
     private final ResourceLocation id;
     private final int cost;
     private final List<ResourceLocation> prerequisites;
     private final Component name;
     private final Component description;
-    private final int x; // X position on the skill tree grid
-    private final int y; // Y position on the skill tree grid
+    private final int x;
+    private final int y;
+    private final SkillType type;
 
-    public Skill(ResourceLocation id, int cost, List<ResourceLocation> prerequisites, String name, String description, int x, int y) {
+    public Skill(ResourceLocation id, int cost, List<ResourceLocation> prerequisites, String name, String description, int x, int y, SkillType type) {
         this.id = id;
         this.cost = cost;
         this.prerequisites = Collections.unmodifiableList(prerequisites);
@@ -26,6 +32,7 @@ public class Skill {
         this.description = Component.literal(description);
         this.x = x;
         this.y = y;
+        this.type = type;
     }
 
     public ResourceLocation getId() { return id; }
@@ -33,9 +40,9 @@ public class Skill {
     public List<ResourceLocation> getPrerequisites() { return prerequisites; }
     public Component getName() { return name; }
     public Component getDescription() { return description; }
-    // Renamed to avoid conflicts with parent widget classes
     public int getSkillX() { return x; }
     public int getSkillY() { return y; }
+    public SkillType getType() { return type; }
 
     public static class Deserializer {
         String id;
@@ -45,6 +52,7 @@ public class Skill {
         String description;
         int x;
         int y;
+        SkillType type = SkillType.PASSIVE; // Default to passive if not specified
 
         public Deserializer() {}
 
@@ -54,8 +62,9 @@ public class Skill {
             this.prerequisites = skill.getPrerequisites().stream().map(ResourceLocation::toString).collect(Collectors.toList());
             this.name = skill.getName().getString();
             this.description = skill.getDescription().getString();
-            this.x = skill.getSkillX(); // Use the corrected method name
-            this.y = skill.getSkillY(); // Use the corrected method name
+            this.x = skill.getSkillX();
+            this.y = skill.getSkillY();
+            this.type = skill.getType();
         }
 
         public Deserializer(FriendlyByteBuf buf) {
@@ -66,6 +75,7 @@ public class Skill {
             this.description = buf.readUtf();
             this.x = buf.readInt();
             this.y = buf.readInt();
+            this.type = buf.readEnum(SkillType.class);
         }
 
         public void toBytes(FriendlyByteBuf buf) {
@@ -76,13 +86,14 @@ public class Skill {
             buf.writeUtf(description);
             buf.writeInt(x);
             buf.writeInt(y);
+            buf.writeEnum(type);
         }
 
         public Skill build() {
             List<ResourceLocation> prereqIds = prerequisites.stream()
                     .map(ResourceLocation::new)
                     .collect(Collectors.toList());
-            return new Skill(new ResourceLocation(id), cost, prereqIds, name, description, x, y);
+            return new Skill(new ResourceLocation(id), cost, prereqIds, name, description, x, y, type);
         }
     }
 }
