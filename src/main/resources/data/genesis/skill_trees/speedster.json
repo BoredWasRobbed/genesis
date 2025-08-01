@@ -44,7 +44,7 @@
       ],
       "x": 30,
       "y": 80,
-      "type": "ACTIVE"
+      "type": "PASSIVE"
     },
     {
       "id": "genesis:speedster/phasing",

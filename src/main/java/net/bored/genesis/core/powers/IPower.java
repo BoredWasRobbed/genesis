@@ -8,14 +8,14 @@ import net.minecraftforge.common.util.INBTSerializable;
 public interface IPower extends INBTSerializable<CompoundTag> {
     void onTick(Player player);
     void onActivate(Player player);
+    void onRemoved(Player player);
 
     /**
-     * Called when this power is removed from a player.
-     * This should be used for all cleanup logic, such as removing persistent
-     * potion effects and resetting any internal state to default values.
-     * @param player The player the power is being removed from.
+     * Called when the main "Power Key" is pressed.
+     * Used for general power activation/deactivation.
+     * @param player The player who pressed the key.
      */
-    void onRemoved(Player player);
+    void onPowerKey(Player player);
 
     ResourceLocation getRegistryName();
     void setRegistryName(ResourceLocation name);

@@ -27,4 +27,7 @@ public interface ISkillPower extends IPower {
     void setAbilityBinding(int slot, ResourceLocation skillId);
     ResourceLocation getAbilityBinding(int slot);
     Map<Integer, ResourceLocation> getAbilityBindings();
+
+    // The onActivate method is inherited from the parent IPower interface
+    // and does not need to be redeclared here.
 }

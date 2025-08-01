@@ -2,15 +2,19 @@ package net.bored.genesis.powers;
 
 import net.bored.genesis.Genesis;
 import net.bored.genesis.core.powers.ISkillPower;
+import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.StringTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.tags.BlockTags;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.Vec3;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -27,35 +31,93 @@ public class SpeedsterPower implements ISkillPower {
     private final Set<ResourceLocation> unlockedSkills = new HashSet<>();
     private final Map<Integer, ResourceLocation> abilityBindings = new HashMap<>();
 
+    // --- Skill IDs ---
     public static final ResourceLocation SKILL_SPEED_1 = new ResourceLocation(Genesis.MOD_ID, "speedster/speed_1");
     public static final ResourceLocation SKILL_SPEED_2 = new ResourceLocation(Genesis.MOD_ID, "speedster/speed_2");
+    public static final ResourceLocation SKILL_SPEED_3 = new ResourceLocation(Genesis.MOD_ID, "speedster/speed_3");
     public static final ResourceLocation SKILL_PHASING = new ResourceLocation(Genesis.MOD_ID, "speedster/phasing");
+    public static final ResourceLocation SKILL_WALL_RUN = new ResourceLocation(Genesis.MOD_ID, "speedster/wall_run");
 
+    // --- Power State ---
+    private boolean isSpeedActive = true;
     private boolean isPhasing = false;
+    private boolean wasFlyingBeforePhase = false;
+    private int wallRunTicks = 0;
+    private static final int MAX_WALL_RUN_TICKS = 40; // 2 seconds
 
     @Override
     public void onTick(Player player) {
-        // Passive effects
-        if (isSkillUnlocked(SKILL_SPEED_2)) {
-            player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SPEED, 2, 1, false, false, false));
-        } else if (isSkillUnlocked(SKILL_SPEED_1)) {
-            player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SPEED, 2, 0, false, false, false));
-        }
+        handleSpeed(player);
+        handlePhasing(player);
+        handleWallRunning(player);
+    }
 
-        // Active effects
+    private void handleSpeed(Player player) {
+        if (isSpeedActive) {
+            int speedLevel = 0;
+            if (isSkillUnlocked(SKILL_SPEED_3)) speedLevel = 2;
+            else if (isSkillUnlocked(SKILL_SPEED_2)) speedLevel = 1;
+            else if (isSkillUnlocked(SKILL_SPEED_1)) speedLevel = 0;
+            else return; // No speed skill unlocked
+
+            player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SPEED, 2, speedLevel, true, false, false));
+        }
+    }
+
+    private void handlePhasing(Player player) {
         if (isPhasing) {
-            player.setNoGravity(true);
             player.noPhysics = true;
+            player.getAbilities().flying = true; // Allow flight control while phasing
         } else if (player.noPhysics) {
-            // Ensure physics is restored if phasing ends unexpectedly
+            // This block runs once when phasing is turned off
             player.noPhysics = false;
+            player.getAbilities().mayfly = wasFlyingBeforePhase;
+            if (!wasFlyingBeforePhase) {
+                player.getAbilities().flying = false;
+            }
+            // Teleport to a safe location to avoid getting stuck
+            teleportToSafeLocation(player);
+        }
+    }
+
+    private void teleportToSafeLocation(Player player) {
+        BlockPos currentPos = player.blockPosition();
+        for (int i = 0; i < 8; i++) { // Check a few blocks up
+            BlockPos checkPos = currentPos.above(i);
+            BlockState state1 = player.level().getBlockState(checkPos);
+            BlockState state2 = player.level().getBlockState(checkPos.above());
+            if (!state1.isSolid() && !state2.isSolid()) {
+                player.teleportTo(checkPos.getX() + 0.5, checkPos.getY(), checkPos.getZ() + 0.5);
+                return;
+            }
+        }
+    }
+
+    private void handleWallRunning(Player player) {
+        if (isSkillUnlocked(SKILL_WALL_RUN) && player.horizontalCollision && !player.onGround() && player.isSprinting()) {
+            if (wallRunTicks < MAX_WALL_RUN_TICKS) {
+                Vec3 motion = player.getDeltaMovement();
+                player.setDeltaMovement(motion.x, 0.15, motion.z); // Apply upward motion
+                wallRunTicks++;
+            }
+        } else {
+            wallRunTicks = 0;
         }
     }
 
     @Override
     public void onPlayerUpdate(Player player) {
-        if (player.isSprinting()) {
+        if (player.isSprinting() && isSpeedActive) {
             addExperience(player, 1);
+        }
+    }
+
+    @Override
+    public void onPowerKey(Player player) {
+        this.isSpeedActive = !this.isSpeedActive;
+        player.sendSystemMessage(Component.literal("Speedster mode " + (this.isSpeedActive ? "activated" : "deactivated")));
+        if (!this.isSpeedActive) {
+            player.removeEffect(MobEffects.MOVEMENT_SPEED);
         }
     }
 
@@ -63,9 +125,26 @@ public class SpeedsterPower implements ISkillPower {
     public void onActivate(Player player) {}
 
     @Override
+    public void activateSkill(Player player, int slot) {
+        ResourceLocation skillId = getAbilityBinding(slot);
+        if (skillId == null || !isSkillUnlocked(skillId)) return;
+
+        if (skillId.equals(SKILL_PHASING)) {
+            this.isPhasing = !this.isPhasing;
+            player.sendSystemMessage(Component.literal("Phasing " + (this.isPhasing ? "Enabled" : "Disabled")));
+            if (this.isPhasing) {
+                // Store original flight state and enable flying
+                this.wasFlyingBeforePhase = player.getAbilities().mayfly;
+                player.getAbilities().mayfly = true;
+            }
+        }
+    }
+
+    @Override
     public void onRemoved(Player player) {
         player.removeEffect(MobEffects.MOVEMENT_SPEED);
         player.noPhysics = false;
+        player.getAbilities().mayfly = wasFlyingBeforePhase; // Restore original flight state
         this.level = 1;
         this.experience = 0;
         this.xpToNextLevel = 100;
@@ -74,12 +153,11 @@ public class SpeedsterPower implements ISkillPower {
         this.abilityBindings.clear();
     }
 
+    // --- Boilerplate and Data Management ---
     @Override
     public ResourceLocation getRegistryName() { return registryName; }
-
     @Override
     public void setRegistryName(ResourceLocation name) { this.registryName = name; }
-
     @Override
     public CompoundTag serializeNBT() {
         CompoundTag nbt = new CompoundTag();
@@ -90,14 +168,12 @@ public class SpeedsterPower implements ISkillPower {
         ListTag unlockedList = new ListTag();
         this.unlockedSkills.forEach(id -> unlockedList.add(StringTag.valueOf(id.toString())));
         nbt.put("unlockedSkills", unlockedList);
-
         CompoundTag bindingsTag = new CompoundTag();
         this.abilityBindings.forEach((slot, id) -> bindingsTag.putString(String.valueOf(slot), id.toString()));
         nbt.put("abilityBindings", bindingsTag);
-
+        nbt.putBoolean("isSpeedActive", this.isSpeedActive);
         return nbt;
     }
-
     @Override
     public void deserializeNBT(CompoundTag nbt) {
         this.level = nbt.getInt("level");
@@ -107,7 +183,6 @@ public class SpeedsterPower implements ISkillPower {
         this.unlockedSkills.clear();
         ListTag unlockedList = nbt.getList("unlockedSkills", Tag.TAG_STRING);
         unlockedList.forEach(tag -> this.unlockedSkills.add(new ResourceLocation(tag.getAsString())));
-
         this.abilityBindings.clear();
         CompoundTag bindingsTag = nbt.getCompound("abilityBindings");
         bindingsTag.getAllKeys().forEach(key -> {
@@ -115,8 +190,10 @@ public class SpeedsterPower implements ISkillPower {
             ResourceLocation id = new ResourceLocation(bindingsTag.getString(key));
             this.abilityBindings.put(slot, id);
         });
+        if (nbt.contains("isSpeedActive")) {
+            this.isSpeedActive = nbt.getBoolean("isSpeedActive");
+        }
     }
-
     @Override
     public ResourceLocation getSkillTreeId() { return new ResourceLocation(Genesis.MOD_ID, "speedster"); }
     @Override
@@ -129,7 +206,6 @@ public class SpeedsterPower implements ISkillPower {
     public int getExperience() { return this.experience; }
     @Override
     public int getXpNeededForNextLevel() { return this.xpToNextLevel; }
-
     @Override
     public void addExperience(Player player, int amount) {
         this.experience += amount;
@@ -141,10 +217,8 @@ public class SpeedsterPower implements ISkillPower {
             player.sendSystemMessage(Component.literal("Your power has reached Level " + this.level + "! You gained 1 Skill Point."));
         }
     }
-
     @Override
     public boolean isSkillUnlocked(ResourceLocation skillId) { return this.unlockedSkills.contains(skillId); }
-
     @Override
     public void unlockSkill(ResourceLocation skillId) {
         this.unlockedSkills.add(skillId);
@@ -154,34 +228,15 @@ public class SpeedsterPower implements ISkillPower {
             });
         });
     }
-
-    @Override
-    public void activateSkill(Player player, int slot) {
-        ResourceLocation skillId = getAbilityBinding(slot);
-        if (skillId == null || !isSkillUnlocked(skillId)) return;
-
-        if (skillId.equals(SKILL_PHASING)) {
-            this.isPhasing = !this.isPhasing;
-            player.sendSystemMessage(Component.literal("Phasing " + (this.isPhasing ? "Enabled" : "Disabled")));
-            if (!isPhasing) {
-                // When disabling, ensure noPhysics is also turned off immediately.
-                player.noPhysics = false;
-            }
-        }
-    }
-
     @Override
     public void setAbilityBinding(int slot, ResourceLocation skillId) {
-        // Ensure a skill isn't bound to multiple slots by removing old entries
         this.abilityBindings.entrySet().removeIf(entry -> entry.getValue().equals(skillId));
         this.abilityBindings.put(slot, skillId);
     }
-
     @Override
     public ResourceLocation getAbilityBinding(int slot) {
         return this.abilityBindings.get(slot);
     }
-
     @Override
     public Map<Integer, ResourceLocation> getAbilityBindings() {
         return this.abilityBindings;

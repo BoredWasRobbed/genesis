@@ -65,6 +65,7 @@ public class Genesis {
         @SubscribeEvent
         public static void onRegisterKeys(RegisterKeyMappingsEvent event) {
             event.register(Keybindings.OPEN_SKILL_TREE_KEY);
+            event.register(Keybindings.POWER_KEY);
             event.register(Keybindings.ABILITY_1_KEY);
             event.register(Keybindings.ABILITY_2_KEY);
             event.register(Keybindings.ABILITY_3_KEY);
