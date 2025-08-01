@@ -1,0 +1,57 @@
+{
+  "skills": [
+    {
+      "id": "genesis:speedster/speed_1",
+      "name": "Mach 1",
+      "description": "Grants a basic speed boost.",
+      "cost": 1,
+      "prerequisites": [],
+      "x": 10,
+      "y": 50
+    },
+    {
+      "id": "genesis:speedster/speed_2",
+      "name": "Mach 2",
+      "description": "Enhances the speed boost.",
+      "cost": 2,
+      "prerequisites": [
+        "genesis:speedster/speed_1"
+      ],
+      "x": 50,
+      "y": 50
+    },
+    {
+      "id": "genesis:speedster/speed_3",
+      "name": "Mach 3",
+      "description": "Allows you to go even faster.",
+      "cost": 3,
+      "prerequisites": [
+        "genesis:speedster/speed_2"
+      ],
+      "x": 90,
+      "y": 50
+    },
+    {
+      "id": "genesis:speedster/wall_run",
+      "name": "Wall Running",
+      "description": "Allows you to run up vertical surfaces.",
+      "cost": 3,
+      "prerequisites": [
+        "genesis:speedster/speed_1"
+      ],
+      "x": 30,
+      "y": 80
+    },
+    {
+      "id": "genesis:speedster/phasing",
+      "name": "Phasing",
+      "description": "Allows you to vibrate through physical matter.",
+      "cost": 5,
+      "prerequisites": [
+        "genesis:speedster/speed_2"
+      ],
+      "x": 70,
+      "y": 20
+    }
+  ]
+}

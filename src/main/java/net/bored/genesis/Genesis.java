@@ -1,8 +1,16 @@
 package net.bored.genesis;
 
 import com.mojang.logging.LogUtils;
+import net.bored.genesis.command.GenesisCommands;
+import net.bored.genesis.core.events.CapabilityEvents;
+import net.bored.genesis.core.powers.PowerRegistry;
+import net.bored.genesis.core.skills.SkillTreeManager;
+import net.bored.genesis.network.PacketHandler;
+import net.bored.genesis.util.Keybindings;
 import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.client.event.RegisterKeyMappingsEvent;
 import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.event.AddReloadListenerEvent;
 import net.minecraftforge.event.BuildCreativeModeTabContentsEvent;
 import net.minecraftforge.event.server.ServerStartingEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
@@ -13,48 +21,54 @@ import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import org.slf4j.Logger;
 
-// The value here should match an entry in the META-INF/mods.toml file
 @Mod(Genesis.MOD_ID)
 public class Genesis {
-    // Define mod id in a common place for everything to reference
     public static final String MOD_ID = "genesis";
-    // Directly reference a slf4j logger
-    private static final Logger LOGGER = LogUtils.getLogger();
+    public static final Logger LOGGER = LogUtils.getLogger();
 
-    public Genesis(FMLJavaModLoadingContext context) {
-        IEventBus modEventBus = context.getModEventBus();
+    public static final SkillTreeManager SKILL_TREE_MANAGER = new SkillTreeManager();
 
-        // Register the commonSetup method for modloading
+    public Genesis() {
+        IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
+
+        PowerRegistry.POWER_REGISTRY.register(modEventBus);
+
         modEventBus.addListener(this::commonSetup);
 
-        // Register ourselves for server and other game events we are interested in
+        // Register the main mod class to the FORGE event bus to handle server events
         MinecraftForge.EVENT_BUS.register(this);
-
-        // Register the item to a creative tab
-        modEventBus.addListener(this::addCreative);
+        // Register other handlers
+        MinecraftForge.EVENT_BUS.register(new CapabilityEvents());
     }
 
     private void commonSetup(final FMLCommonSetupEvent event) {
-
+        event.enqueueWork(PacketHandler::register);
     }
 
-    // Add the example block item to the building blocks tab
     private void addCreative(BuildCreativeModeTabContentsEvent event) {
-
     }
 
-    // You can use SubscribeEvent and let the Event Bus discover methods to call
     @SubscribeEvent
     public void onServerStarting(ServerStartingEvent event) {
-
+        GenesisCommands.register(event.getServer().getCommands().getDispatcher());
     }
 
-    // You can use EventBusSubscriber to automatically register all static methods in the class annotated with @SubscribeEvent
+    // This event is now correctly handled by the main class instance
+    @SubscribeEvent
+    public void onAddReloadListener(AddReloadListenerEvent event) {
+        event.addListener(SKILL_TREE_MANAGER);
+        Genesis.LOGGER.info("Registered SkillTreeManager to reload listeners.");
+    }
+
     @Mod.EventBusSubscriber(modid = MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
     public static class ClientModEvents {
         @SubscribeEvent
         public static void onClientSetup(FMLClientSetupEvent event) {
+        }
 
+        @SubscribeEvent
+        public static void onRegisterKeys(RegisterKeyMappingsEvent event) {
+            event.register(Keybindings.OPEN_SKILL_TREE_KEY);
         }
     }
 }
