@@ -35,20 +35,18 @@ public class SpeedsterPower implements ISkillPower {
     public static final ResourceLocation SKILL_SPEED_1 = new ResourceLocation(Genesis.MOD_ID, "speedster/speed_1");
     public static final ResourceLocation SKILL_SPEED_2 = new ResourceLocation(Genesis.MOD_ID, "speedster/speed_2");
     public static final ResourceLocation SKILL_SPEED_3 = new ResourceLocation(Genesis.MOD_ID, "speedster/speed_3");
-    public static final ResourceLocation SKILL_PHASING = new ResourceLocation(Genesis.MOD_ID, "speedster/phasing");
-    public static final ResourceLocation SKILL_WALL_RUN = new ResourceLocation(Genesis.MOD_ID, "speedster/wall_run");
+    public static final ResourceLocation SKILL_SPEED_4 = new ResourceLocation(Genesis.MOD_ID, "speedster/speed_4");
+    public static final ResourceLocation SKILL_SPEED_5 = new ResourceLocation(Genesis.MOD_ID, "speedster/speed_5");
+    public static final ResourceLocation SKILL_SPEED_6 = new ResourceLocation(Genesis.MOD_ID, "speedster/speed_6");
+    public static final ResourceLocation SKILL_SPEED_7 = new ResourceLocation(Genesis.MOD_ID, "speedster/speed_7");
+    public static final ResourceLocation SKILL_SPEED_8 = new ResourceLocation(Genesis.MOD_ID, "speedster/speed_8");
 
     // --- Power State ---
     private boolean isSpeedActive = true;
-    private boolean isPhasing = false;
-    private int wallRunTicks = 0;
-    private static final int MAX_WALL_RUN_TICKS = 40; // 2 seconds
 
     @Override
     public void onTick(Player player) {
         handleSpeed(player);
-        handlePhasing(player);
-        handleWallRunning(player);
     }
 
     private void handleSpeed(Player player) {
@@ -60,48 +58,6 @@ public class SpeedsterPower implements ISkillPower {
             else return; // No speed skill unlocked
 
             player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SPEED, 2, speedLevel, true, false, false));
-        }
-    }
-
-    private void handlePhasing(Player player) {
-        if (isPhasing) {
-            player.noPhysics = true;
-            // Manually apply gravity since noPhysics disables it.
-            // This prevents the player from flying and makes them fall through blocks.
-            if (!player.getAbilities().invulnerable) { // Don't apply gravity if player is in creative mode
-                player.setDeltaMovement(player.getDeltaMovement().x, player.getDeltaMovement().y - 0.08, player.getDeltaMovement().z);
-            }
-        } else if (player.noPhysics) {
-            // This block runs once when phasing is turned off
-            player.noPhysics = false;
-            // Teleport to a safe location to avoid getting stuck
-            teleportToSafeLocation(player);
-        }
-    }
-
-    private void teleportToSafeLocation(Player player) {
-        BlockPos currentPos = player.blockPosition();
-        for (int i = 0; i < 8; i++) { // Check a few blocks up
-            BlockPos checkPos = currentPos.above(i);
-            BlockState state1 = player.level().getBlockState(checkPos);
-            BlockState state2 = player.level().getBlockState(checkPos.above());
-            if (!state1.isSolid() && !state2.isSolid()) {
-                player.teleportTo(checkPos.getX() + 0.5, checkPos.getY(), checkPos.getZ() + 0.5);
-                return;
-            }
-        }
-    }
-
-    private void handleWallRunning(Player player) {
-        if (isSkillUnlocked(SKILL_WALL_RUN) && player.horizontalCollision && !player.onGround() && player.isSprinting()) {
-            if (wallRunTicks < MAX_WALL_RUN_TICKS) {
-                Vec3 lookAngle = player.getLookAngle();
-                // Use the look angle to influence the direction of wall running
-                player.setDeltaMovement(lookAngle.x * 0.5, lookAngle.y * 0.5, lookAngle.z * 0.5);
-                wallRunTicks++;
-            }
-        } else {
-            wallRunTicks = 0;
         }
     }
 
@@ -130,10 +86,10 @@ public class SpeedsterPower implements ISkillPower {
         ResourceLocation skillId = getAbilityBinding(slot);
         if (skillId == null || !isSkillUnlocked(skillId)) return;
 
-        if (skillId.equals(SKILL_PHASING)) {
-            this.isPhasing = !this.isPhasing;
-            player.sendSystemMessage(Component.literal("Phasing " + (this.isPhasing ? "Enabled" : "Disabled")));
-        }
+        // if (skillId.equals(SKILL_PHASING)) {
+        //    this.isPhasing = !this.isPhasing;
+        //    player.sendSystemMessage(Component.literal("Phasing " + (this.isPhasing ? "Enabled" : "Disabled")));
+        //}
     }
 
     @Override

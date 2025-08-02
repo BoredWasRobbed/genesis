@@ -2,8 +2,8 @@
   "skills": [
     {
       "id": "genesis:speedster/speed_1",
-      "name": "Mach 1",
-      "description": "Grants a basic speed boost.",
+      "name": "Speed Boost",
+      "description": "Grants an increased speed cap.",
       "cost": 1,
       "prerequisites": [],
       "x": 10,
@@ -12,20 +12,20 @@
     },
     {
       "id": "genesis:speedster/speed_2",
-      "name": "Mach 2",
-      "description": "Enhances the speed boost.",
+      "name": "Speed Boost",
+      "description": "Grants an increased speed cap.",
       "cost": 2,
       "prerequisites": [
         "genesis:speedster/speed_1"
       ],
       "x": 50,
-      "y": 50,
+      "y": 90,
       "type": "PASSIVE"
     },
     {
       "id": "genesis:speedster/speed_3",
-      "name": "Mach 3",
-      "description": "Allows you to go even faster.",
+      "name": "Speed Boost",
+      "description": "Grants an increased speed cap.",
       "cost": 3,
       "prerequisites": [
         "genesis:speedster/speed_2"
@@ -35,28 +35,64 @@
       "type": "PASSIVE"
     },
     {
-      "id": "genesis:speedster/wall_run",
-      "name": "Wall Running",
-      "description": "Allows you to run up vertical surfaces.",
+      "id": "genesis:speedster/speed_4",
+      "name": "Speed Boost",
+      "description": "Grants an increased speed cap.",
       "cost": 3,
       "prerequisites": [
-        "genesis:speedster/speed_1"
+        "genesis:speedster/speed_3"
       ],
-      "x": 30,
-      "y": 80,
+      "x": 130,
+      "y": 90,
       "type": "PASSIVE"
     },
     {
-      "id": "genesis:speedster/phasing",
-      "name": "Phasing",
-      "description": "Allows you to vibrate through physical matter.",
-      "cost": 5,
+      "id": "genesis:speedster/speed_5",
+      "name": "Speed Boost",
+      "description": "Grants an increased speed cap.",
+      "cost": 3,
       "prerequisites": [
-        "genesis:speedster/speed_2"
+        "genesis:speedster/speed_4"
       ],
-      "x": 70,
-      "y": 20,
-      "type": "ACTIVE"
+      "x": 170,
+      "y": 50,
+      "type": "PASSIVE"
+    },
+    {
+      "id": "genesis:speedster/speed_6",
+      "name": "Speed Boost",
+      "description": "Grants an increased speed cap.",
+      "cost": 3,
+      "prerequisites": [
+        "genesis:speedster/speed_5"
+      ],
+      "x": 210,
+      "y": 90,
+      "type": "PASSIVE"
+    },
+    {
+      "id": "genesis:speedster/speed_7",
+      "name": "Speed Boost",
+      "description": "Grants an increased speed cap.",
+      "cost": 3,
+      "prerequisites": [
+        "genesis:speedster/speed_6"
+      ],
+      "x": 250,
+      "y": 50,
+      "type": "PASSIVE"
+    },
+    {
+      "id": "genesis:speedster/speed_8",
+      "name": "Speed Boost",
+      "description": "Grants an increased speed cap.",
+      "cost": 3,
+      "prerequisites": [
+        "genesis:speedster/speed_7"
+      ],
+      "x": 290,
+      "y": 90,
+      "type": "PASSIVE"
     }
   ]
 }
