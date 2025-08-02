@@ -2,24 +2,23 @@ package net.bored.genesis.powers;
 
 import net.bored.genesis.Genesis;
 import net.bored.genesis.core.powers.ISkillPower;
-import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.StringTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.tags.BlockTags;
-import net.minecraft.world.effect.MobEffectInstance;
-import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.ai.attributes.AttributeInstance;
+import net.minecraft.world.entity.ai.attributes.AttributeModifier;
+import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 
 public class SpeedsterPower implements ISkillPower {
 
@@ -41,26 +40,83 @@ public class SpeedsterPower implements ISkillPower {
     public static final ResourceLocation SKILL_SPEED_7 = new ResourceLocation(Genesis.MOD_ID, "speedster/speed_7");
     public static final ResourceLocation SKILL_SPEED_8 = new ResourceLocation(Genesis.MOD_ID, "speedster/speed_8");
 
+
     // --- Power State ---
+    private static final UUID SPEED_MODIFIER_UUID = UUID.fromString("9a49a457-81dc-4aac-b4ec-94583f8c48cd");
+    private static final UUID KNOCKBACK_RESISTANCE_UUID = UUID.fromString("75f6fa17-a72b-437f-98c7-e9e7916d56ea");
+
+    private final AttributeModifier knockbackResistanceModifier = new AttributeModifier(KNOCKBACK_RESISTANCE_UUID, "Speedster Knockback Resistance", 1.0, AttributeModifier.Operation.ADDITION);
+
     private boolean isSpeedActive = true;
+    private int sprintTicks = 0;
 
     @Override
     public void onTick(Player player) {
-        handleSpeed(player);
+        handleAttributes(player);
+        handleWaterRunning(player);
+        handleAcceleration(player);
     }
 
-    private void handleSpeed(Player player) {
-        if (isSpeedActive) {
-            int speedLevel = 0;
-            if (isSkillUnlocked(SKILL_SPEED_3)) speedLevel = 2;
-            else if (isSkillUnlocked(SKILL_SPEED_2)) speedLevel = 1;
-            else if (isSkillUnlocked(SKILL_SPEED_1)) speedLevel = 0;
-            else return; // No speed skill unlocked
+    private void handleAcceleration(Player player) {
+        AttributeInstance speedAttribute = player.getAttribute(Attributes.MOVEMENT_SPEED);
+        if (speedAttribute == null) return;
 
-            player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SPEED, 2, speedLevel, true, false, false));
+        // Always remove the modifier first to ensure it's updated correctly.
+        speedAttribute.removeModifier(SPEED_MODIFIER_UUID);
+
+        if (isSpeedActive && player.isSprinting()) {
+            sprintTicks++;
+
+            double maxBonus = 0;
+            double accelerationFactor = 0;
+
+            if (isSkillUnlocked(SKILL_SPEED_8)) { maxBonus = 3.5; accelerationFactor = 0.018; }
+            else if (isSkillUnlocked(SKILL_SPEED_7)) { maxBonus = 3.0; accelerationFactor = 0.016; }
+            else if (isSkillUnlocked(SKILL_SPEED_6)) { maxBonus = 2.5; accelerationFactor = 0.014; }
+            else if (isSkillUnlocked(SKILL_SPEED_5)) { maxBonus = 2.0; accelerationFactor = 0.012; }
+            else if (isSkillUnlocked(SKILL_SPEED_4)) { maxBonus = 1.6; accelerationFactor = 0.010; }
+            else if (isSkillUnlocked(SKILL_SPEED_3)) { maxBonus = 1.2; accelerationFactor = 0.008; }
+            else if (isSkillUnlocked(SKILL_SPEED_2)) { maxBonus = 0.8; accelerationFactor = 0.006; }
+            else if (isSkillUnlocked(SKILL_SPEED_1)) { maxBonus = 0.5; accelerationFactor = 0.004; }
+            else { sprintTicks = 0; return; }
+
+            double currentBonus = Math.min(maxBonus, sprintTicks * accelerationFactor);
+
+            // Create a new modifier with the updated value and add it.
+            AttributeModifier speedModifier = new AttributeModifier(SPEED_MODIFIER_UUID, "Speedster Acceleration", currentBonus, AttributeModifier.Operation.MULTIPLY_TOTAL);
+            speedAttribute.addPermanentModifier(speedModifier);
+
+        } else {
+            sprintTicks = 0;
+            // The modifier is already removed at the start of the method, so no action is needed here.
         }
     }
 
+    private void handleAttributes(Player player) {
+        AttributeInstance knockbackAttribute = player.getAttribute(Attributes.KNOCKBACK_RESISTANCE);
+        if (knockbackAttribute == null) return;
+
+        if (isSpeedActive) {
+            if (!knockbackAttribute.hasModifier(knockbackResistanceModifier)) {
+                knockbackAttribute.addPermanentModifier(knockbackResistanceModifier);
+            }
+        } else {
+            if (knockbackAttribute.hasModifier(knockbackResistanceModifier)) {
+                knockbackAttribute.removeModifier(knockbackResistanceModifier);
+            }
+        }
+    }
+
+    private void handleWaterRunning(Player player) {
+        if (isSpeedActive && player.isInWater() && player.isSprinting()) {
+            Vec3 motion = player.getDeltaMovement();
+            if (motion.y < 0) {
+                player.setDeltaMovement(motion.x, 0, motion.z);
+            }
+            Vec3 look = player.getLookAngle();
+            player.setDeltaMovement(player.getDeltaMovement().add(look.x * 0.1, 0, look.z * 0.1));
+        }
+    }
 
     @Override
     public void onPlayerUpdate(Player player) {
@@ -74,28 +130,29 @@ public class SpeedsterPower implements ISkillPower {
         this.isSpeedActive = !this.isSpeedActive;
         player.sendSystemMessage(Component.literal("Speedster mode " + (this.isSpeedActive ? "activated" : "deactivated")));
         if (!this.isSpeedActive) {
-            player.removeEffect(MobEffects.MOVEMENT_SPEED);
+            sprintTicks = 0;
+            // Manually remove the modifier when toggling off to ensure immediate effect.
+            AttributeInstance speedAttribute = player.getAttribute(Attributes.MOVEMENT_SPEED);
+            if (speedAttribute != null) {
+                speedAttribute.removeModifier(SPEED_MODIFIER_UUID);
+            }
         }
     }
 
     @Override
-    public void onActivate(Player player) {}
-
-    @Override
-    public void activateSkill(Player player, int slot) {
-        ResourceLocation skillId = getAbilityBinding(slot);
-        if (skillId == null || !isSkillUnlocked(skillId)) return;
-
-        // if (skillId.equals(SKILL_PHASING)) {
-        //    this.isPhasing = !this.isPhasing;
-        //    player.sendSystemMessage(Component.literal("Phasing " + (this.isPhasing ? "Enabled" : "Disabled")));
-        //}
-    }
+    public void activateSkill(Player player, int slot) {}
 
     @Override
     public void onRemoved(Player player) {
-        player.removeEffect(MobEffects.MOVEMENT_SPEED);
-        player.noPhysics = false;
+        AttributeInstance speedAttribute = player.getAttribute(Attributes.MOVEMENT_SPEED);
+        if (speedAttribute != null) {
+            speedAttribute.removeModifier(SPEED_MODIFIER_UUID);
+        }
+        AttributeInstance knockbackAttribute = player.getAttribute(Attributes.KNOCKBACK_RESISTANCE);
+        if (knockbackAttribute != null) {
+            knockbackAttribute.removeModifier(knockbackResistanceModifier);
+        }
+
         this.level = 1;
         this.experience = 0;
         this.xpToNextLevel = 100;
@@ -103,6 +160,9 @@ public class SpeedsterPower implements ISkillPower {
         this.unlockedSkills.clear();
         this.abilityBindings.clear();
     }
+
+    @Override
+    public void onActivate(Player player) {}
 
     // --- Boilerplate and Data Management ---
     @Override
