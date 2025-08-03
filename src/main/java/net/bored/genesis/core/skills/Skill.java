@@ -22,13 +22,15 @@ public class Skill {
     private final Component name;
     private final Component description;
     private final Component infoDescription;
-    private final ResourceLocation icon; // New field for the icon
+    private final ResourceLocation icon;
+    private final int iconWidth;
+    private final int iconHeight;
     private final int x;
     private final int y;
     private final SkillType type;
     private final boolean toggleable;
 
-    public Skill(ResourceLocation id, int cost, List<ResourceLocation> prerequisites, List<ResourceLocation> exclusions, String name, String description, String infoDescription, ResourceLocation icon, int x, int y, SkillType type, boolean toggleable) {
+    public Skill(ResourceLocation id, int cost, List<ResourceLocation> prerequisites, List<ResourceLocation> exclusions, String name, String description, String infoDescription, ResourceLocation icon, int iconWidth, int iconHeight, int x, int y, SkillType type, boolean toggleable) {
         this.id = id;
         this.cost = cost;
         this.prerequisites = Collections.unmodifiableList(prerequisites);
@@ -37,6 +39,8 @@ public class Skill {
         this.description = Component.literal(description);
         this.infoDescription = Component.literal(infoDescription);
         this.icon = icon;
+        this.iconWidth = iconWidth;
+        this.iconHeight = iconHeight;
         this.x = x;
         this.y = y;
         this.type = type;
@@ -51,6 +55,8 @@ public class Skill {
     public Component getDescription() { return description; }
     public Component getInfoDescription() { return infoDescription; }
     public ResourceLocation getIcon() { return icon; }
+    public int getIconWidth() { return iconWidth; }
+    public int getIconHeight() { return iconHeight; }
     public int getSkillX() { return x; }
     public int getSkillY() { return y; }
     public SkillType getType() { return type; }
@@ -64,7 +70,9 @@ public class Skill {
         String name;
         String description;
         String info_description = "";
-        String icon = "minecraft:feather"; // Default icon
+        String icon = "minecraft:feather";
+        int icon_width = 16;
+        int icon_height = 16;
         int x;
         int y;
         SkillType type = SkillType.PASSIVE;
@@ -81,6 +89,8 @@ public class Skill {
             this.description = skill.getDescription().getString();
             this.info_description = skill.getInfoDescription().getString();
             this.icon = skill.getIcon().toString();
+            this.icon_width = skill.getIconWidth();
+            this.icon_height = skill.getIconHeight();
             this.x = skill.getSkillX();
             this.y = skill.getSkillY();
             this.type = skill.getType();
@@ -96,6 +106,8 @@ public class Skill {
             this.description = buf.readUtf();
             this.info_description = buf.readUtf();
             this.icon = buf.readUtf();
+            this.icon_width = buf.readInt();
+            this.icon_height = buf.readInt();
             this.x = buf.readInt();
             this.y = buf.readInt();
             this.type = buf.readEnum(SkillType.class);
@@ -111,6 +123,8 @@ public class Skill {
             buf.writeUtf(description);
             buf.writeUtf(info_description);
             buf.writeUtf(icon);
+            buf.writeInt(icon_width);
+            buf.writeInt(icon_height);
             buf.writeInt(x);
             buf.writeInt(y);
             buf.writeEnum(type);
@@ -124,7 +138,7 @@ public class Skill {
             List<ResourceLocation> exclusionIds = exclusions.stream()
                     .map(ResourceLocation::new)
                     .collect(Collectors.toList());
-            return new Skill(new ResourceLocation(id), cost, prereqIds, exclusionIds, name, description, info_description, new ResourceLocation(icon), x, y, type, toggleable);
+            return new Skill(new ResourceLocation(id), cost, prereqIds, exclusionIds, name, description, info_description, new ResourceLocation(icon), icon_width, icon_height, x, y, type, toggleable);
         }
     }
 }

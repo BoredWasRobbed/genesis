@@ -6,7 +6,7 @@
       "description": "Grants an increased speed cap.",
       "info_description": "Increases your base speed multiplier to +100% (1.0x). Sprinting provides an additional +30% boost that accelerates over time.",
       "icon": "genesis:textures/gui/lightning_bolt.png",
-      "cost": 1,
+      "cost": 0,
       "prerequisites": [],
       "x": 10,
       "y": 50,
@@ -18,7 +18,7 @@
       "description": "Grants an increased speed cap.",
       "info_description": "Increases your base speed multiplier to +160% (1.6x).",
       "icon": "genesis:textures/gui/lightning_bolt.png",
-      "cost": 2,
+      "cost": 0,
       "prerequisites": [
         "genesis:speedster/speed_1"
       ],
@@ -32,7 +32,21 @@
       "description": "Grants an increased speed cap.",
       "info_description": "Increases your base speed multiplier to +240% (2.4x).",
       "icon": "genesis:textures/gui/lightning_bolt.png",
-      "cost": 3,
+      "cost": 0,
+      "prerequisites": [
+        "genesis:speedster/speed_2"
+      ],
+      "x": 90,
+      "y": 50,
+      "type": "PASSIVE"
+    },
+    {
+      "id": "genesis:speedster/phasing",
+      "name": "Phasing",
+      "description": "Allows the ",
+      "info_description": "Increases your base speed multiplier to +240% (2.4x).",
+      "icon": "genesis:textures/gui/lightning_bolt.png",
+      "cost": 0,
       "prerequisites": [
         "genesis:speedster/speed_2"
       ],
@@ -46,7 +60,7 @@
       "description": "Grants an increased speed cap.",
       "info_description": "Increases your base speed multiplier to +320% (3.2x).",
       "icon": "genesis:textures/gui/lightning_bolt.png",
-      "cost": 3,
+      "cost": 0,
       "prerequisites": [
         "genesis:speedster/speed_3"
       ],
@@ -60,7 +74,7 @@
       "description": "Grants an increased speed cap.",
       "info_description": "Increases your base speed multiplier to +400% (4.0x).",
       "icon": "genesis:textures/gui/lightning_bolt.png",
-      "cost": 3,
+      "cost": 0,
       "prerequisites": [
         "genesis:speedster/speed_4"
       ],
@@ -74,7 +88,7 @@
       "description": "Grants an increased speed cap.",
       "info_description": "Increases your base speed multiplier to +500% (5.0x).",
       "icon": "genesis:textures/gui/lightning_bolt.png",
-      "cost": 3,
+      "cost": 0,
       "prerequisites": [
         "genesis:speedster/speed_5"
       ],
@@ -83,12 +97,12 @@
       "type": "PASSIVE"
     },
     {
-      "id": "genesis:speedster/speed_7",
-      "name": "Speed Boost VII",
-      "description": "Grants an increased speed cap.",
-      "info_description": "Increases your base speed multiplier to +600% (6.0x).",
+      "id": "genesis:speedster/projectile_catch",
+      "name": "Projectile Catch",
+      "description": "When looking at a projectile, catch it midair.",
+      "info_description": "?",
       "icon": "genesis:textures/gui/lightning_bolt.png",
-      "cost": 3,
+      "cost": 0,
       "prerequisites": [
         "genesis:speedster/speed_6"
       ],
@@ -97,33 +111,48 @@
       "type": "PASSIVE"
     },
     {
-      "id": "genesis:speedster/speed_8",
-      "name": "Speed Boost VIII",
+      "id": "genesis:speedster/speed_7",
+      "name": "Speed Boost VII",
       "description": "Grants an increased speed cap.",
-      "info_description": "Increases your base speed multiplier to +700% (7.0x).",
+      "info_description": "Increases your base speed multiplier to +600% (6.0x).",
       "icon": "genesis:textures/gui/lightning_bolt.png",
-      "cost": 3,
+      "cost": 0,
       "prerequisites": [
-        "genesis:speedster/speed_7"
+        "genesis:speedster/projectile_catch"
       ],
       "x": 290,
       "y": 90,
       "type": "PASSIVE"
     },
     {
-      "id": "genesis:speedster/kinetic_kickstart",
-      "name": "Kinetic Kickstart",
-      "description": "Reach your top speed instantly.",
-      "info_description": "Removes the acceleration from the sprinting speed boost, making it instant. Can be toggled off in the skill tree.",
-      "icon": "minecraft:diamond",
-      "cost": 5,
+      "id": "genesis:speedster/speed_8",
+      "name": "Speed Boost VIII",
+      "description": "Grants an increased speed cap.",
+      "info_description": "Increases your base speed multiplier to +700% (7.0x).",
+      "icon": "genesis:textures/gui/lightning_bolt.png",
+      "cost": 0,
       "prerequisites": [
-        "genesis:speedster/speed_8"
+        "genesis:speedster/speed_7"
       ],
       "x": 330,
       "y": 50,
-      "type": "PASSIVE",
-      "toggleable": true
+      "type": "PASSIVE"
+    },
+    {
+      "id": "genesis:speedster/speed_force",
+      "name": "Speed Force",
+      "description": "When at your top speed, activate to go into the speed force.",
+      "info_description": "Allows the user to access the Speed Force dimension, allowing for faster travel to other locations.",
+      "icon": "genesis:textures/gui/speed_force_icon.png",
+      "icon_width": 64,
+      "icon_height": 64,
+      "cost": 0,
+      "prerequisites": [
+        "genesis:speedster/speed_8"
+      ],
+      "x": 370,
+      "y": 90,
+      "type": "ACTIVE"
     }
   ]
 }

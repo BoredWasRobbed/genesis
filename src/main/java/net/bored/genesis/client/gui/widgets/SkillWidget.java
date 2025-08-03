@@ -58,15 +58,22 @@ public class SkillWidget extends AbstractWidget {
 
         guiGraphics.blit(WIDGETS_TEXTURE, getX(), getY(), u, v, this.width, this.height);
 
-        // --- Data-driven Icon Rendering (Now using textures) ---
-        ResourceLocation icon = this.skill.getIcon();
-
         if (state == SkillState.DEACTIVATED) {
             RenderSystem.setShaderColor(0.5F, 0.5F, 0.5F, 1.0F);
         }
 
-        // Draw the raw texture instead of an item
-        guiGraphics.blit(icon, getX() + 5, getY() + 5, 0, 0, 16, 16, 16, 16);
+        // --- NEW ROBUST ICON RENDERING ---
+        String iconPath = this.skill.getIcon().toString();
+        if (iconPath.contains("/")) { // It's a direct texture path
+            // This blit method correctly scales the entire source texture into the target render area.
+            guiGraphics.blit(this.skill.getIcon(), getX() + 5, getY() + 5, 16, 16, 0, 0, this.skill.getIconWidth(), this.skill.getIconHeight(), this.skill.getIconWidth(), this.skill.getIconHeight());
+        } else { // It's an item ID
+            Item iconItem = ForgeRegistries.ITEMS.getValue(this.skill.getIcon());
+            if (iconItem == null) {
+                iconItem = Items.FEATHER; // Fallback for invalid item IDs
+            }
+            guiGraphics.renderItem(new ItemStack(iconItem), getX() + 5, getY() + 5);
+        }
 
         if (state == SkillState.DEACTIVATED) {
             RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
