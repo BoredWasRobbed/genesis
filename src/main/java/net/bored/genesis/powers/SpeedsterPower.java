@@ -3,6 +3,7 @@ package net.bored.genesis.powers;
 import com.google.common.collect.ImmutableList;
 import net.bored.genesis.Genesis;
 import net.bored.genesis.core.powers.ISkillPower;
+import net.minecraft.ChatFormatting;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.StringTag;
@@ -33,6 +34,7 @@ public class SpeedsterPower implements ISkillPower {
     private int xpToNextLevel = 100;
     private int skillPoints = 0;
     private final Set<ResourceLocation> unlockedSkills = new HashSet<>();
+    private final Set<ResourceLocation> activeSkills = new HashSet<>();
     private final Map<Integer, ResourceLocation> abilityBindings = new HashMap<>();
 
     // --- Skill IDs ---
@@ -52,7 +54,8 @@ public class SpeedsterPower implements ISkillPower {
     );
 
     // --- Power State ---
-    private static final UUID SPEED_MODIFIER_UUID = UUID.fromString("9a49a457-81dc-4aac-b4ec-94583f8c48cd");
+    private static final UUID BASE_SPEED_UUID = UUID.fromString("9a49a457-81dc-4aac-b4ec-94583f8c48cd");
+    private static final UUID SPRINT_BOOST_UUID = UUID.fromString("0b6a2b3c-9b7a-4b1a-8b1a-9b6b7a2d1a3e");
     private static final UUID V9_BOOST_UUID = UUID.fromString("5c3f2b4a-4f1c-4b1a-8f1a-9b6b7a2d1a3e");
     private static final UUID STEP_HEIGHT_UUID = UUID.fromString("70a1d9de-f27f-4a7a-bafc-561f0b36b8ae");
 
@@ -60,7 +63,7 @@ public class SpeedsterPower implements ISkillPower {
 
     private boolean isSpeedActive = true;
     private int sprintTicks = 0;
-    private int currentSpeedTier = 8; // Index + 1
+    private int currentSpeedTier = 8;
 
     // --- Velocity-9 State ---
     private int v9Toxicity = 0;
@@ -75,51 +78,60 @@ public class SpeedsterPower implements ISkillPower {
     public void onTick(Player player) {
         handleAttributes(player);
         handleWaterRunning(player);
-        handleAcceleration(player);
+        handleSpeedModifiers(player);
         handleV9Effects(player);
     }
 
-    private void handleAcceleration(Player player) {
+    private void handleSpeedModifiers(Player player) {
         AttributeInstance speedAttribute = player.getAttribute(Attributes.MOVEMENT_SPEED);
         if (speedAttribute == null) return;
 
-        speedAttribute.removeModifier(SPEED_MODIFIER_UUID);
+        speedAttribute.removeModifier(BASE_SPEED_UUID);
+        speedAttribute.removeModifier(SPRINT_BOOST_UUID);
 
-        if (isSpeedActive && player.isSprinting()) {
-            double maxBonus = 0;
-            double accelerationFactor = 0;
+        if (isSpeedActive) {
             int highestUnlockedTier = 0;
-
             for (int i = 0; i < SPEED_SKILL_TIERS.size(); i++) {
                 if(isSkillUnlocked(SPEED_SKILL_TIERS.get(i))) {
                     highestUnlockedTier = i + 1;
                 }
             }
             int effectiveTier = Math.min(currentSpeedTier, highestUnlockedTier);
+            double baseBonus = 0;
 
             switch(effectiveTier) {
-                case 1: maxBonus = 1.0; accelerationFactor = 0.008; break; // 0.5 * 2
-                case 2: maxBonus = 1.6; accelerationFactor = 0.012; break; // 0.8 * 2
-                case 3: maxBonus = 2.4; accelerationFactor = 0.016; break; // 1.2 * 2
-                case 4: maxBonus = 3.2; accelerationFactor = 0.020; break; // 1.6 * 2
-                case 5: maxBonus = 4.0; accelerationFactor = 0.024; break; // 2.0 * 2
-                case 6: maxBonus = 5.0; accelerationFactor = 0.028; break; // 2.5 * 2
-                case 7: maxBonus = 6.0; accelerationFactor = 0.032; break; // 3.0 * 2
-                case 8: maxBonus = 7.0; accelerationFactor = 0.036; break; // 3.5 * 2
-                default: sprintTicks = 0; return;
+                case 1: baseBonus = 1.0; break;
+                case 2: baseBonus = 1.6; break;
+                case 3: baseBonus = 2.4; break;
+                case 4: baseBonus = 3.2; break;
+                case 5: baseBonus = 4.0; break;
+                case 6: baseBonus = 5.0; break;
+                case 7: baseBonus = 6.0; break;
+                case 8: baseBonus = 7.0; break;
             }
 
-            double currentBonus;
-            if (isSkillUnlocked(SKILL_KINETIC_KICKSTART)) {
-                currentBonus = maxBonus; // Instant acceleration
+            if (baseBonus > 0) {
+                AttributeModifier baseSpeedModifier = new AttributeModifier(BASE_SPEED_UUID, "Speedster Base Speed", baseBonus, AttributeModifier.Operation.MULTIPLY_TOTAL);
+                speedAttribute.addPermanentModifier(baseSpeedModifier);
+            }
+
+            if (player.isSprinting()) {
+                double sprintBonusMax = 0.30; // +30% sprint boost
+                double sprintAcceleration = 0.01;
+                double currentSprintBonus;
+
+                if (isSkillActive(SKILL_KINETIC_KICKSTART)) {
+                    currentSprintBonus = sprintBonusMax;
+                } else {
+                    sprintTicks++;
+                    currentSprintBonus = Math.min(sprintBonusMax, sprintTicks * sprintAcceleration);
+                }
+
+                AttributeModifier sprintModifier = new AttributeModifier(SPRINT_BOOST_UUID, "Speedster Sprint Boost", currentSprintBonus, AttributeModifier.Operation.MULTIPLY_TOTAL);
+                speedAttribute.addPermanentModifier(sprintModifier);
             } else {
-                sprintTicks++;
-                currentBonus = Math.min(maxBonus, sprintTicks * accelerationFactor);
+                sprintTicks = 0;
             }
-
-            AttributeModifier speedModifier = new AttributeModifier(SPEED_MODIFIER_UUID, "Speedster Acceleration", currentBonus, AttributeModifier.Operation.MULTIPLY_TOTAL);
-            speedAttribute.addPermanentModifier(speedModifier);
-
         } else {
             sprintTicks = 0;
         }
@@ -155,7 +167,8 @@ public class SpeedsterPower implements ISkillPower {
             v9BoostTicks--;
             if (v9BoostTicks == 0) {
                 speedAttribute.removeModifier(V9_BOOST_UUID);
-                player.sendSystemMessage(Component.literal("The Velocity-9 boost has worn off."));
+                player.displayClientMessage(Component.literal("The Velocity-9 boost has worn off."), true);
+                player.level().playSound(null, player.blockPosition(), SoundEvents.FIRE_EXTINGUISH, SoundSource.PLAYERS, 0.5F, 1.0F);
             }
         }
 
@@ -182,12 +195,26 @@ public class SpeedsterPower implements ISkillPower {
     @Override
     public void onPowerKey(Player player) {
         this.isSpeedActive = !this.isSpeedActive;
-        player.sendSystemMessage(Component.literal("Speedster mode " + (this.isSpeedActive ? "activated" : "deactivated")));
+        Component message;
+        float pitch;
+
+        if (this.isSpeedActive) {
+            message = Component.literal("Speed Force: ").withStyle(ChatFormatting.WHITE).append(Component.literal("ON").withStyle(ChatFormatting.YELLOW));
+            pitch = 1.2F;
+        } else {
+            message = Component.literal("Speed Force: ").withStyle(ChatFormatting.WHITE).append(Component.literal("OFF").withStyle(ChatFormatting.GRAY));
+            pitch = 0.8F;
+        }
+
+        player.displayClientMessage(message, true);
+        player.level().playSound(null, player.blockPosition(), SoundEvents.NOTE_BLOCK_PLING.get(), SoundSource.PLAYERS, 0.7F, pitch);
+
         if (!this.isSpeedActive) {
             sprintTicks = 0;
             AttributeInstance speedAttribute = player.getAttribute(Attributes.MOVEMENT_SPEED);
             if (speedAttribute != null) {
-                speedAttribute.removeModifier(SPEED_MODIFIER_UUID);
+                speedAttribute.removeModifier(BASE_SPEED_UUID);
+                speedAttribute.removeModifier(SPRINT_BOOST_UUID);
             }
         }
     }
@@ -201,20 +228,26 @@ public class SpeedsterPower implements ISkillPower {
         }
 
         if (highestUnlockedTier == 0) {
-            player.sendSystemMessage(Component.literal("Unlock speed skills to set a top speed."));
+            player.displayClientMessage(Component.literal("Unlock speed skills to set a top speed.").withStyle(ChatFormatting.RED), true);
+            player.level().playSound(null, player.blockPosition(), SoundEvents.NOTE_BLOCK_DIDGERIDOO.get(), SoundSource.PLAYERS, 0.7F, 1.5F);
             return;
         }
 
         int oldTier = currentSpeedTier;
+        int newTier;
 
         if (cycleUp) {
-            currentSpeedTier = Math.min(highestUnlockedTier, currentSpeedTier + 1);
-        } else { // cycle down
-            currentSpeedTier = Math.max(1, currentSpeedTier - 1);
+            newTier = Math.min(highestUnlockedTier, currentSpeedTier + 1);
+        } else {
+            newTier = Math.max(1, currentSpeedTier - 1);
         }
 
-        if(oldTier != currentSpeedTier) {
-            player.sendSystemMessage(Component.literal("Top speed set to Tier " + currentSpeedTier));
+        if(oldTier != newTier) {
+            currentSpeedTier = newTier;
+            player.displayClientMessage(Component.literal("Top Speed: Tier " + currentSpeedTier), true);
+            player.level().playSound(null, player.blockPosition(), SoundEvents.UI_BUTTON_CLICK.get(), SoundSource.PLAYERS, 0.5F, 1.2F);
+        } else {
+            player.level().playSound(null, player.blockPosition(), SoundEvents.NOTE_BLOCK_DIDGERIDOO.get(), SoundSource.PLAYERS, 0.7F, 1.5F);
         }
     }
 
@@ -222,7 +255,8 @@ public class SpeedsterPower implements ISkillPower {
     public void onRemoved(Player player) {
         AttributeInstance speedAttribute = player.getAttribute(Attributes.MOVEMENT_SPEED);
         if (speedAttribute != null) {
-            speedAttribute.removeModifier(SPEED_MODIFIER_UUID);
+            speedAttribute.removeModifier(BASE_SPEED_UUID);
+            speedAttribute.removeModifier(SPRINT_BOOST_UUID);
             speedAttribute.removeModifier(V9_BOOST_UUID);
         }
         AttributeInstance stepHeightAttribute = player.getAttribute(ForgeMod.STEP_HEIGHT_ADDITION.get());
@@ -241,6 +275,9 @@ public class SpeedsterPower implements ISkillPower {
         ListTag unlockedList = new ListTag();
         this.unlockedSkills.forEach(id -> unlockedList.add(StringTag.valueOf(id.toString())));
         nbt.put("unlockedSkills", unlockedList);
+        ListTag activeList = new ListTag();
+        this.activeSkills.forEach(id -> activeList.add(StringTag.valueOf(id.toString())));
+        nbt.put("activeSkills", activeList);
         CompoundTag bindingsTag = new CompoundTag();
         this.abilityBindings.forEach((slot, id) -> bindingsTag.putString(String.valueOf(slot), id.toString()));
         nbt.put("abilityBindings", bindingsTag);
@@ -261,6 +298,12 @@ public class SpeedsterPower implements ISkillPower {
         this.unlockedSkills.clear();
         ListTag unlockedList = nbt.getList("unlockedSkills", Tag.TAG_STRING);
         unlockedList.forEach(tag -> this.unlockedSkills.add(new ResourceLocation(tag.getAsString())));
+        this.activeSkills.clear();
+        ListTag activeList = nbt.getList("activeSkills", Tag.TAG_STRING);
+        activeList.forEach(tag -> this.activeSkills.add(new ResourceLocation(tag.getAsString())));
+        if (this.activeSkills.isEmpty() && !this.unlockedSkills.isEmpty()) {
+            this.activeSkills.addAll(this.unlockedSkills);
+        }
         this.abilityBindings.clear();
         CompoundTag bindingsTag = nbt.getCompound("abilityBindings");
         bindingsTag.getAllKeys().forEach(key -> {
@@ -275,7 +318,6 @@ public class SpeedsterPower implements ISkillPower {
         this.v9BoostTicks = nbt.getInt("v9BoostTicks");
     }
 
-    // --- IVelocitySusceptible Implementation ---
     @Override
     public void applyVelocity9(Player player) {
         AttributeInstance speedAttribute = player.getAttribute(Attributes.MOVEMENT_SPEED);
@@ -285,14 +327,14 @@ public class SpeedsterPower implements ISkillPower {
         AttributeModifier v9boost = new AttributeModifier(V9_BOOST_UUID, "V9 Temporary Boost", 4.0, AttributeModifier.Operation.MULTIPLY_TOTAL);
         speedAttribute.addPermanentModifier(v9boost);
 
-        this.v9BoostTicks = 600; // 30 seconds
+        this.v9BoostTicks = 600;
         this.v9Toxicity++;
         if (this.v9Toxicity >= V9_TOXICITY_THRESHOLD) {
             this.v9DegenerationTimer = DEGENERATION_GRACE_PERIOD;
         }
 
         player.level().playSound(null, player.blockPosition(), SoundEvents.ZOMBIE_VILLAGER_CURE, SoundSource.PLAYERS, 0.8f, 1.5f);
-        player.sendSystemMessage(Component.literal("Velocity-9 surges through you, granting immense temporary speed!"));
+        player.displayClientMessage(Component.literal("Velocity-9 surges through you!").withStyle(ChatFormatting.BLUE), true);
     }
 
     @Override
@@ -300,7 +342,39 @@ public class SpeedsterPower implements ISkillPower {
         return this.v9Toxicity;
     }
 
-    // --- Unused / Boilerplate ---
+    @Override
+    public void unlockSkill(ResourceLocation skillId) {
+        if (this.unlockedSkills.add(skillId)) {
+            this.activeSkills.add(skillId);
+            Genesis.SKILL_TREE_MANAGER.getSkillTree(getSkillTreeId()).ifPresent(tree -> {
+                tree.getSkill(skillId).ifPresent(skill -> {
+                    this.skillPoints -= skill.getCost();
+                });
+            });
+        }
+    }
+
+    @Override
+    public boolean isSkillActive(ResourceLocation skillId) {
+        return this.activeSkills.contains(skillId);
+    }
+
+    @Override
+    public void toggleSkill(ResourceLocation skillId) {
+        if (isSkillUnlocked(skillId)) {
+            if (isSkillActive(skillId)) {
+                this.activeSkills.remove(skillId);
+            } else {
+                this.activeSkills.add(skillId);
+            }
+        }
+    }
+
+    @Override
+    public Set<ResourceLocation> getActiveSkills() {
+        return this.activeSkills;
+    }
+
     @Override
     public void activateSkill(Player player, int slot) {}
     @Override
@@ -329,20 +403,14 @@ public class SpeedsterPower implements ISkillPower {
             this.experience -= this.xpToNextLevel;
             this.xpToNextLevel = (int) (this.xpToNextLevel * 1.5);
             addSkillPoints(1);
-            player.sendSystemMessage(Component.literal("Your power has reached Level " + this.level + "! You gained 1 Skill Point."));
+            Component message = Component.literal("Speed Force Level Up! ").withStyle(ChatFormatting.AQUA)
+                    .append(Component.literal("[" + this.level + "]").withStyle(ChatFormatting.YELLOW));
+            player.displayClientMessage(message, true);
+            player.level().playSound(null, player.blockPosition(), SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 0.8F, 1.2F);
         }
     }
     @Override
     public boolean isSkillUnlocked(ResourceLocation skillId) { return this.unlockedSkills.contains(skillId); }
-    @Override
-    public void unlockSkill(ResourceLocation skillId) {
-        this.unlockedSkills.add(skillId);
-        Genesis.SKILL_TREE_MANAGER.getSkillTree(getSkillTreeId()).ifPresent(tree -> {
-            tree.getSkill(skillId).ifPresent(skill -> {
-                this.skillPoints -= skill.getCost();
-            });
-        });
-    }
     @Override
     public void setAbilityBinding(int slot, ResourceLocation skillId) {
         this.abilityBindings.entrySet().removeIf(entry -> entry.getValue().equals(skillId));

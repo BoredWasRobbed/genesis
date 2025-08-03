@@ -5,6 +5,7 @@ import net.bored.genesis.core.skills.Skill;
 import net.bored.genesis.core.skills.SkillTree;
 import net.bored.genesis.network.PacketHandler;
 import net.bored.genesis.network.packets.BindAbilityC2SPacket;
+import net.bored.genesis.network.packets.ToggleSkillC2SPacket;
 import net.bored.genesis.network.packets.UnlockSkillC2SPacket;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -13,7 +14,9 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 public class SkillTreeScreen extends Screen {
@@ -21,6 +24,7 @@ public class SkillTreeScreen extends Screen {
     private final ResourceLocation powerId;
     private final SkillTree skillTree;
     private Set<ResourceLocation> unlockedSkills;
+    private Set<ResourceLocation> activeSkills;
     private int skillPoints;
     private int level;
     private int experience;
@@ -29,18 +33,20 @@ public class SkillTreeScreen extends Screen {
 
     private final Map<ResourceLocation, SkillWidget> skillWidgets = new HashMap<>();
     private final Button[] abilitySlotButtons = new Button[5];
+    private final Set<ResourceLocation> excludedSkillsCache = new HashSet<>();
 
     private ResourceLocation selectedSkillForBinding = null;
 
     private int contentCenterX = 0;
     private int contentCenterY = 0;
-    private static final int HORIZONTAL_OFFSET = 60; // Pushes the tree to the right
+    private static final int HORIZONTAL_OFFSET = 60;
 
-    public SkillTreeScreen(ResourceLocation powerId, SkillTree skillTree, Set<ResourceLocation> unlockedSkills, int skillPoints, int level, int experience, int xpToNextLevel, Map<Integer, ResourceLocation> abilityBindings) {
+    public SkillTreeScreen(ResourceLocation powerId, SkillTree skillTree, Set<ResourceLocation> unlockedSkills, Set<ResourceLocation> activeSkills, int skillPoints, int level, int experience, int xpToNextLevel, Map<Integer, ResourceLocation> abilityBindings) {
         super(Component.literal("Skill Tree"));
         this.powerId = powerId;
         this.skillTree = skillTree;
         this.unlockedSkills = unlockedSkills;
+        this.activeSkills = activeSkills;
         this.skillPoints = skillPoints;
         this.level = level;
         this.experience = experience;
@@ -48,8 +54,9 @@ public class SkillTreeScreen extends Screen {
         this.abilityBindings = abilityBindings;
     }
 
-    public void updateData(Set<ResourceLocation> newUnlockedSkills, int newSkillPoints, int newLevel, int newExperience, int newXpToNextLevel, Map<Integer, ResourceLocation> newAbilityBindings) {
+    public void updateData(Set<ResourceLocation> newUnlockedSkills, Set<ResourceLocation> newActiveSkills, int newSkillPoints, int newLevel, int newExperience, int newXpToNextLevel, Map<Integer, ResourceLocation> newAbilityBindings) {
         this.unlockedSkills = newUnlockedSkills;
+        this.activeSkills = newActiveSkills;
         this.skillPoints = newSkillPoints;
         this.level = newLevel;
         this.experience = newExperience;
@@ -60,16 +67,51 @@ public class SkillTreeScreen extends Screen {
         this.setFocused(null);
     }
 
+    private void getExcludedSkills(Set<ResourceLocation> excluded) {
+        // Find skills directly excluded by an unlocked skill
+        for (ResourceLocation unlockedId : unlockedSkills) {
+            skillTree.getSkill(unlockedId).ifPresent(unlockedSkill -> {
+                for (ResourceLocation exclusionId : unlockedSkill.getExclusions()) {
+                    if (!excluded.contains(exclusionId)) {
+                        excluded.add(exclusionId);
+                        recursivelyExcludeChildren(exclusionId, excluded);
+                    }
+                }
+            });
+        }
+    }
+
+    private void recursivelyExcludeChildren(ResourceLocation parentId, Set<ResourceLocation> excluded) {
+        // Find all skills that have the excluded skill as a prerequisite
+        for (Skill potentialChild : skillTree.getAllSkills().values()) {
+            if (potentialChild.getPrerequisites().contains(parentId) && !excluded.contains(potentialChild.getId())) {
+                excluded.add(potentialChild.getId());
+                recursivelyExcludeChildren(potentialChild.getId(), excluded);
+            }
+        }
+    }
+
+
     private void populateSkillWidgets() {
         this.clearWidgets();
         this.skillWidgets.clear();
+        this.excludedSkillsCache.clear();
+        getExcludedSkills(this.excludedSkillsCache);
 
         for (Skill skill : skillTree.getAllSkills().values()) {
+            if (this.excludedSkillsCache.contains(skill.getId())) {
+                continue; // Skip rendering this skill and its entire branch
+            }
+
             SkillWidget.SkillState state;
             boolean hasPrereqs = skill.getPrerequisites().stream().allMatch(unlockedSkills::contains);
 
             if (unlockedSkills.contains(skill.getId())) {
-                state = SkillWidget.SkillState.UNLOCKED;
+                if (skill.isToggleable()) {
+                    state = activeSkills.contains(skill.getId()) ? SkillWidget.SkillState.UNLOCKED : SkillWidget.SkillState.DEACTIVATED;
+                } else {
+                    state = SkillWidget.SkillState.UNLOCKED;
+                }
             } else if (hasPrereqs && skillPoints >= skill.getCost()) {
                 state = SkillWidget.SkillState.CAN_UNLOCK;
             } else {
@@ -84,7 +126,6 @@ public class SkillTreeScreen extends Screen {
             this.addRenderableWidget(widget);
         }
 
-        // Re-add ability buttons after clearing
         for (int i = 0; i < 5; i++) {
             this.addRenderableWidget(this.abilitySlotButtons[i]);
         }
@@ -92,7 +133,7 @@ public class SkillTreeScreen extends Screen {
 
     private void updateAbilitySlotButtons() {
         for (int i = 0; i < 5; i++) {
-            final int slot = i; // Create an effectively final variable for the lambda
+            final int slot = i;
             ResourceLocation boundSkillId = this.abilityBindings.get(slot);
             if (boundSkillId != null) {
                 skillTree.getSkill(boundSkillId).ifPresent(skill -> {
@@ -153,12 +194,14 @@ public class SkillTreeScreen extends Screen {
         guiGraphics.drawString(this.font, "Lvl: " + this.level + " (" + this.experience + "/" + this.xpToNextLevel + ")", 10, 25, 0xFFFFFF);
         guiGraphics.drawString(this.font, "SP: " + this.skillPoints, 10, 40, 0xFFFFFF);
 
-        for (SkillWidget widget : this.skillWidgets.values()) {
-            if (widget.isHoveredOrFocused()) {
-                guiGraphics.renderComponentTooltip(this.font, widget.getSkillTooltip(), mouseX, mouseY);
-                break;
-            }
-        }
+        // --- NEW TOOLTIP LOGIC ---
+        // This is a more robust way to handle tooltips, preventing the "sticky" bug.
+        // It finds the specific widget the mouse is currently over and renders its tooltip.
+        this.skillWidgets.values().stream()
+                .filter(widget -> widget.isMouseOver(mouseX, mouseY))
+                .findFirst()
+                .ifPresent(widget -> guiGraphics.renderComponentTooltip(this.font, widget.getSkillTooltip(), mouseX, mouseY));
+
 
         if (this.selectedSkillForBinding != null) {
             guiGraphics.drawCenteredString(this.font, "Binding Skill... (Press an ability slot)", this.width / 2, 10, 0xFFFF55);
@@ -167,7 +210,11 @@ public class SkillTreeScreen extends Screen {
 
     private void renderLines(GuiGraphics guiGraphics) {
         for (Skill skill : this.skillTree.getAllSkills().values()) {
+            if (this.excludedSkillsCache.contains(skill.getId())) continue;
+
             for (ResourceLocation prereqId : skill.getPrerequisites()) {
+                if (this.excludedSkillsCache.contains(prereqId)) continue;
+
                 Skill prereqSkill = this.skillTree.getSkill(prereqId).orElse(null);
                 if (prereqSkill != null) {
                     int x1 = (this.width / 2) - this.contentCenterX + skill.getSkillX() + 13 + HORIZONTAL_OFFSET;
@@ -201,21 +248,34 @@ public class SkillTreeScreen extends Screen {
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        // Corrected click handling logic
         for (SkillWidget widget : this.skillWidgets.values()) {
             if (widget.isMouseOver(mouseX, mouseY)) {
                 if (button == 0 && widget.state == SkillWidget.SkillState.CAN_UNLOCK) {
                     PacketHandler.sendToServer(new UnlockSkillC2SPacket(this.powerId, widget.skill.getId()));
+                    this.setFocused(null);
                     return true;
                 }
-                if (button == 1 && widget.state == SkillWidget.SkillState.UNLOCKED && widget.skill.getType() == Skill.SkillType.ACTIVE) {
-                    this.selectedSkillForBinding = widget.skill.getId();
-                    return true;
+                if (button == 1) { // Right-click
+                    if (widget.skill.isToggleable() && (widget.state == SkillWidget.SkillState.UNLOCKED || widget.state == SkillWidget.SkillState.DEACTIVATED)) {
+                        PacketHandler.sendToServer(new ToggleSkillC2SPacket(widget.skill.getId()));
+                        if (this.activeSkills.contains(widget.skill.getId())) {
+                            this.activeSkills.remove(widget.skill.getId());
+                        } else {
+                            this.activeSkills.add(widget.skill.getId());
+                        }
+                        this.populateSkillWidgets();
+                        this.setFocused(null);
+                        return true;
+                    }
+                    if (widget.state == SkillWidget.SkillState.UNLOCKED && widget.skill.getType() == Skill.SkillType.ACTIVE) {
+                        this.selectedSkillForBinding = widget.skill.getId();
+                        this.setFocused(null);
+                        return true;
+                    }
                 }
             }
         }
 
-        // Handle clicks on other widgets (like the ability buttons)
         return super.mouseClicked(mouseX, mouseY, button);
     }
 

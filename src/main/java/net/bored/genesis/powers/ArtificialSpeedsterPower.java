@@ -15,6 +15,7 @@ import net.minecraftforge.common.ForgeMod;
 
 import java.util.Collections;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 public class ArtificialSpeedsterPower implements ISkillPower {
@@ -124,6 +125,12 @@ public class ArtificialSpeedsterPower implements ISkillPower {
     public void unlockSkill(ResourceLocation skillId) {}
     @Override
     public void activateSkill(Player player, int slot) {}
+    @Override
+    public boolean isSkillActive(ResourceLocation skillId) { return false; }
+    @Override
+    public void toggleSkill(ResourceLocation skillId) {}
+    @Override
+    public Set<ResourceLocation> getActiveSkills() { return Collections.emptySet(); }
     @Override
     public int getLevel() { return 0; }
     @Override

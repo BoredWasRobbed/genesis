@@ -7,6 +7,7 @@ import net.bored.genesis.network.packets.BindAbilityC2SPacket;
 import net.bored.genesis.network.packets.CycleTopSpeedC2SPacket;
 import net.bored.genesis.network.packets.OpenSkillTreeS2CPacket;
 import net.bored.genesis.network.packets.RequestOpenSkillTreeC2SPacket;
+import net.bored.genesis.network.packets.ToggleSkillC2SPacket;
 import net.bored.genesis.network.packets.UnlockSkillC2SPacket;
 import net.bored.genesis.network.packets.UpdateSkillTreeS2CPacket;
 import net.minecraft.resources.ResourceLocation;
@@ -38,6 +39,8 @@ public class PacketHandler {
         INSTANCE.messageBuilder(BindAbilityC2SPacket.class, id(), NetworkDirection.PLAY_TO_SERVER).encoder(BindAbilityC2SPacket::toBytes).decoder(BindAbilityC2SPacket::new).consumerMainThread(BindAbilityC2SPacket::handle).add();
         INSTANCE.messageBuilder(ActivatePowerC2SPacket.class, id(), NetworkDirection.PLAY_TO_SERVER).encoder(ActivatePowerC2SPacket::toBytes).decoder(ActivatePowerC2SPacket::new).consumerMainThread(ActivatePowerC2SPacket::handle).add();
         INSTANCE.messageBuilder(CycleTopSpeedC2SPacket.class, id(), NetworkDirection.PLAY_TO_SERVER).encoder(CycleTopSpeedC2SPacket::toBytes).decoder(CycleTopSpeedC2SPacket::new).consumerMainThread(CycleTopSpeedC2SPacket::handle).add();
+        INSTANCE.messageBuilder(ToggleSkillC2SPacket.class, id(), NetworkDirection.PLAY_TO_SERVER).encoder(ToggleSkillC2SPacket::toBytes).decoder(ToggleSkillC2SPacket::new).consumerMainThread(ToggleSkillC2SPacket::handle).add();
+
 
         // S2C
         INSTANCE.messageBuilder(OpenSkillTreeS2CPacket.class, id(), NetworkDirection.PLAY_TO_CLIENT).encoder(OpenSkillTreeS2CPacket::toBytes).decoder(OpenSkillTreeS2CPacket::new).consumerMainThread(OpenSkillTreeS2CPacket::handle).add();

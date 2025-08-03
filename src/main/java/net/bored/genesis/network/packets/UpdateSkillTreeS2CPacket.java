@@ -19,14 +19,16 @@ public class UpdateSkillTreeS2CPacket {
 
     private final int skillPoints;
     private final Set<ResourceLocation> unlockedSkills;
+    private final Set<ResourceLocation> activeSkills;
     private final int level;
     private final int experience;
     private final int xpToNextLevel;
     private final Map<Integer, ResourceLocation> abilityBindings;
 
-    public UpdateSkillTreeS2CPacket(int skillPoints, Set<ResourceLocation> unlockedSkills, int level, int experience, int xpToNextLevel, Map<Integer, ResourceLocation> abilityBindings) {
+    public UpdateSkillTreeS2CPacket(int skillPoints, Set<ResourceLocation> unlockedSkills, Set<ResourceLocation> activeSkills, int level, int experience, int xpToNextLevel, Map<Integer, ResourceLocation> abilityBindings) {
         this.skillPoints = skillPoints;
         this.unlockedSkills = new HashSet<>(unlockedSkills);
+        this.activeSkills = new HashSet<>(activeSkills);
         this.level = level;
         this.experience = experience;
         this.xpToNextLevel = xpToNextLevel;
@@ -36,6 +38,7 @@ public class UpdateSkillTreeS2CPacket {
     public UpdateSkillTreeS2CPacket(FriendlyByteBuf buf) {
         this.skillPoints = buf.readInt();
         this.unlockedSkills = buf.readCollection(HashSet::new, FriendlyByteBuf::readResourceLocation);
+        this.activeSkills = buf.readCollection(HashSet::new, FriendlyByteBuf::readResourceLocation);
         this.level = buf.readInt();
         this.experience = buf.readInt();
         this.xpToNextLevel = buf.readInt();
@@ -45,6 +48,7 @@ public class UpdateSkillTreeS2CPacket {
     public void toBytes(FriendlyByteBuf buf) {
         buf.writeInt(skillPoints);
         buf.writeCollection(unlockedSkills, FriendlyByteBuf::writeResourceLocation);
+        buf.writeCollection(activeSkills, FriendlyByteBuf::writeResourceLocation);
         buf.writeInt(level);
         buf.writeInt(experience);
         buf.writeInt(xpToNextLevel);
@@ -57,7 +61,7 @@ public class UpdateSkillTreeS2CPacket {
             DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> {
                 Screen currentScreen = Minecraft.getInstance().screen;
                 if (currentScreen instanceof SkillTreeScreen skillTreeScreen) {
-                    skillTreeScreen.updateData(unlockedSkills, skillPoints, level, experience, xpToNextLevel, abilityBindings);
+                    skillTreeScreen.updateData(unlockedSkills, activeSkills, skillPoints, level, experience, xpToNextLevel, abilityBindings);
                 }
             });
         });

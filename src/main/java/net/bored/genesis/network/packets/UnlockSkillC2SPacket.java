@@ -5,6 +5,7 @@ import net.bored.genesis.core.capabilities.PowerCapability;
 import net.bored.genesis.core.powers.ISkillPower;
 import net.bored.genesis.core.skills.Skill;
 import net.bored.genesis.network.PacketHandler;
+import net.minecraft.ChatFormatting;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -47,45 +48,63 @@ public class UnlockSkillC2SPacket {
             player.getCapability(PowerCapability.POWER_MANAGER).ifPresent(manager -> {
                 manager.getPower(powerId).ifPresent(power -> {
                     if (!(power instanceof ISkillPower skillPower)) {
-                        player.sendSystemMessage(Component.literal("Power " + powerId + " does not have a skill tree."));
                         return;
                     }
 
                     Genesis.SKILL_TREE_MANAGER.getSkillTree(skillPower.getSkillTreeId()).ifPresent(tree -> {
                         Skill skill = tree.getSkill(skillId).orElse(null);
                         if (skill == null) {
-                            player.sendSystemMessage(Component.literal("Skill " + skillId + " not found."));
                             return;
                         }
 
                         if (skillPower.isSkillUnlocked(skillId)) {
-                            player.sendSystemMessage(Component.literal("Skill " + skillId + " is already unlocked."));
                             return;
                         }
 
                         if (skillPower.getSkillPoints() < skill.getCost()) {
-                            player.sendSystemMessage(Component.literal("Not enough skill points."));
+                            player.displayClientMessage(Component.literal("Not enough Skill Points").withStyle(ChatFormatting.RED), true);
+                            player.level().playSound(null, player.blockPosition(), SoundEvents.NOTE_BLOCK_DIDGERIDOO.get(), SoundSource.PLAYERS, 0.7F, 1.5F);
+                            return;
+                        }
+
+                        AtomicBoolean isExcluded = new AtomicBoolean(false);
+                        tree.getAllSkills().values().forEach(s -> {
+                            if (skillPower.isSkillUnlocked(s.getId())) {
+                                if (s.getExclusions().contains(skillId)) {
+                                    player.displayClientMessage(Component.literal("Blocked by " + s.getName().getString()).withStyle(ChatFormatting.RED), true);
+                                    player.level().playSound(null, player.blockPosition(), SoundEvents.NOTE_BLOCK_DIDGERIDOO.get(), SoundSource.PLAYERS, 0.7F, 1.5F);
+                                    isExcluded.set(true);
+                                }
+                                if (skill.getExclusions().contains(s.getId())) {
+                                    player.displayClientMessage(Component.literal("Conflicts with " + s.getName().getString()).withStyle(ChatFormatting.RED), true);
+                                    player.level().playSound(null, player.blockPosition(), SoundEvents.NOTE_BLOCK_DIDGERIDOO.get(), SoundSource.PLAYERS, 0.7F, 1.5F);
+                                    isExcluded.set(true);
+                                }
+                            }
+                        });
+
+                        if (isExcluded.get()) {
                             return;
                         }
 
                         AtomicBoolean hasPrereqs = new AtomicBoolean(true);
                         skill.getPrerequisites().forEach(prereqId -> {
                             if (!skillPower.isSkillUnlocked(prereqId)) {
-                                player.sendSystemMessage(Component.literal("Missing prerequisite: " + prereqId));
+                                player.displayClientMessage(Component.literal("Missing prerequisite").withStyle(ChatFormatting.RED), true);
+                                player.level().playSound(null, player.blockPosition(), SoundEvents.NOTE_BLOCK_DIDGERIDOO.get(), SoundSource.PLAYERS, 0.7F, 1.5F);
                                 hasPrereqs.set(false);
                             }
                         });
 
                         if (hasPrereqs.get()) {
                             skillPower.unlockSkill(skillId);
-                            player.sendSystemMessage(Component.literal("Unlocked skill: " + skill.getName().getString()));
-
-                            player.level().playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 0.75F, 1.0F);
+                            player.displayClientMessage(Component.literal("Unlocked: ").withStyle(ChatFormatting.GREEN).append(skill.getName()), true);
+                            player.level().playSound(null, player.blockPosition(), SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 0.75F, 1.0F);
 
                             Set<ResourceLocation> unlocked = tree.getAllSkills().keySet().stream()
                                     .filter(skillPower::isSkillUnlocked)
                                     .collect(Collectors.toSet());
-                            PacketHandler.sendToPlayer(new UpdateSkillTreeS2CPacket(skillPower.getSkillPoints(), unlocked, skillPower.getLevel(), skillPower.getExperience(), skillPower.getXpNeededForNextLevel(), skillPower.getAbilityBindings()), player);
+                            PacketHandler.sendToPlayer(new UpdateSkillTreeS2CPacket(skillPower.getSkillPoints(), unlocked, skillPower.getActiveSkills(), skillPower.getLevel(), skillPower.getExperience(), skillPower.getXpNeededForNextLevel(), skillPower.getAbilityBindings()), player);
                         }
                     });
                 });

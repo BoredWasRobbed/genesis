@@ -2,13 +2,19 @@ package net.bored.genesis.client.gui.widgets;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.bored.genesis.core.skills.Skill;
+import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraftforge.registries.ForgeRegistries;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class SkillWidget extends AbstractWidget {
@@ -20,7 +26,8 @@ public class SkillWidget extends AbstractWidget {
     public enum SkillState {
         LOCKED,
         UNLOCKED,
-        CAN_UNLOCK
+        CAN_UNLOCK,
+        DEACTIVATED
     }
 
     public SkillWidget(int x, int y, Skill skill, SkillState state) {
@@ -44,22 +51,39 @@ public class SkillWidget extends AbstractWidget {
             case LOCKED:
                 u = 52; // Locked frame
                 break;
+            case DEACTIVATED:
+                u = 26; // Unlocked frame, but we'll gray out the icon
+                break;
         }
 
         guiGraphics.blit(WIDGETS_TEXTURE, getX(), getY(), u, v, this.width, this.height);
-        ResourceLocation icon = new ResourceLocation("minecraft", "textures/item/feather.png");
+
+        // --- Data-driven Icon Rendering (Now using textures) ---
+        ResourceLocation icon = this.skill.getIcon();
+
+        if (state == SkillState.DEACTIVATED) {
+            RenderSystem.setShaderColor(0.5F, 0.5F, 0.5F, 1.0F);
+        }
+
+        // Draw the raw texture instead of an item
         guiGraphics.blit(icon, getX() + 5, getY() + 5, 0, 0, 16, 16, 16, 16);
+
+        if (state == SkillState.DEACTIVATED) {
+            RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
+        }
     }
 
-    /**
-     * Renamed to avoid conflicts with the parent AbstractWidget class.
-     */
     public List<Component> getSkillTooltip() {
-        return List.of(
-                this.skill.getName(),
-                this.skill.getDescription(),
-                Component.literal("Cost: " + this.skill.getCost() + " SP")
-        );
+        List<Component> tooltip = new ArrayList<>();
+        tooltip.add(this.skill.getName());
+        tooltip.add(this.skill.getDescription().copy().withStyle(ChatFormatting.GRAY));
+        tooltip.add(Component.literal("Cost: " + this.skill.getCost() + " SP").withStyle(ChatFormatting.DARK_GRAY));
+
+        if (this.skill.isToggleable() && (this.state == SkillState.UNLOCKED || this.state == SkillState.DEACTIVATED)) {
+            tooltip.add(Component.literal(""));
+            tooltip.add(Component.literal("[Right-Click to Toggle]").withStyle(ChatFormatting.YELLOW));
+        }
+        return tooltip;
     }
 
     @Override

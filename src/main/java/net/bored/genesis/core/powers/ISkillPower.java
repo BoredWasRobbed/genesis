@@ -4,6 +4,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Player;
 
 import java.util.Map;
+import java.util.Set;
 
 public interface ISkillPower extends IPower, IVelocitySusceptible {
 
@@ -14,6 +15,10 @@ public interface ISkillPower extends IPower, IVelocitySusceptible {
     boolean isSkillUnlocked(ResourceLocation skillId);
     void unlockSkill(ResourceLocation skillId);
     void activateSkill(Player player, int slot);
+    boolean isSkillActive(ResourceLocation skillId);
+    void toggleSkill(ResourceLocation skillId);
+    Set<ResourceLocation> getActiveSkills();
+
 
     // --- Leveling & XP Methods ---
     int getLevel();

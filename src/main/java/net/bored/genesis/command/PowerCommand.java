@@ -12,6 +12,7 @@ import net.bored.genesis.core.powers.ISkillPower;
 import net.bored.genesis.core.powers.PowerManager;
 import net.bored.genesis.core.powers.PowerRegistry;
 import net.bored.genesis.core.skills.Skill;
+import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.SharedSuggestionProvider;
@@ -20,6 +21,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 
+import java.util.Comparator;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -46,22 +48,28 @@ public class PowerCommand {
     }
 
     private static int info(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
-        ServerPlayer player = context.getSource().getPlayerOrException();
         ResourceLocation powerId = ResourceLocationArgument.getId(context, "power_id");
-        PowerManager manager = player.getCapability(PowerCapability.POWER_MANAGER).orElse(null);
-        if (manager == null) return 0;
-        Optional<IPower> powerOpt = manager.getPower(powerId);
-        if (powerOpt.isEmpty()) {
-            context.getSource().sendFailure(Component.literal("Player does not have power: " + powerId));
+        IPower power = PowerRegistry.getPower(powerId);
+
+        if (power == null) {
+            context.getSource().sendFailure(Component.literal("Power not found: " + powerId));
             return 0;
         }
-        if (powerOpt.get() instanceof ISkillPower skillPower) {
-            context.getSource().sendSuccess(() -> Component.literal("Info for " + powerId + ":"), false);
-            context.getSource().sendSuccess(() -> Component.literal("  Level: " + skillPower.getLevel()), false);
-            context.getSource().sendSuccess(() -> Component.literal("  XP: " + skillPower.getExperience() + " / " + skillPower.getXpNeededForNextLevel()), false);
-            context.getSource().sendSuccess(() -> Component.literal("  Skill Points: " + skillPower.getSkillPoints()), false);
+
+        if (power instanceof ISkillPower skillPower && skillPower.getSkillTreeId() != null) {
+            Genesis.SKILL_TREE_MANAGER.getSkillTree(skillPower.getSkillTreeId()).ifPresentOrElse(tree -> {
+                context.getSource().sendSuccess(() -> Component.literal("--- Power Info for ").append(Component.literal(powerId.toString()).withStyle(ChatFormatting.AQUA)).append(" ---"), false);
+                tree.getAllSkills().values().stream()
+                        .sorted(Comparator.comparingInt(Skill::getSkillX)) // Sort by X coordinate only
+                        .forEach(skill -> {
+                            context.getSource().sendSuccess(() -> Component.literal(""), false); // Spacer
+                            context.getSource().sendSuccess(() -> Component.literal(skill.getName().getString()).withStyle(ChatFormatting.GOLD), false);
+                            context.getSource().sendSuccess(() -> Component.literal("  Cost: ").withStyle(ChatFormatting.GRAY).append(Component.literal(String.valueOf(skill.getCost())).withStyle(ChatFormatting.WHITE)), false);
+                            context.getSource().sendSuccess(() -> Component.literal("  Description: ").withStyle(ChatFormatting.GRAY).append(Component.literal(skill.getInfoDescription().getString()).withStyle(ChatFormatting.WHITE)), false);
+                        });
+            }, () -> context.getSource().sendFailure(Component.literal("Could not find skill tree data for " + powerId)));
         } else {
-            context.getSource().sendSuccess(() -> Component.literal(powerId + " is a basic power with no progression."), false);
+            context.getSource().sendSuccess(() -> Component.literal(powerId + " is a basic power with no skill tree or detailed info."), false);
         }
         return 1;
     }
