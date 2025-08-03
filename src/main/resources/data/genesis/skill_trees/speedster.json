@@ -93,6 +93,18 @@
       "x": 290,
       "y": 90,
       "type": "PASSIVE"
+    },
+    {
+      "id": "genesis:speedster/kinetic_kickstart",
+      "name": "Kinetic Kickstart",
+      "description": "Reach your top speed instantly.",
+      "cost": 5,
+      "prerequisites": [
+        "genesis:speedster/speed_8"
+      ],
+      "x": 290,
+      "y": 50,
+      "type": "PASSIVE"
     }
   ]
 }

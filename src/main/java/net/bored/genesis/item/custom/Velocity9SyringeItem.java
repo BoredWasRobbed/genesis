@@ -1,8 +1,8 @@
 package net.bored.genesis.item.custom;
 
 import net.bored.genesis.core.capabilities.PowerCapability;
+import net.bored.genesis.core.powers.IVelocitySusceptible;
 import net.bored.genesis.item.ItemRegistry;
-import net.bored.genesis.powers.ArtificialSpeedsterPower;
 import net.minecraft.advancements.CriteriaTriggers;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.stats.Stats;
@@ -28,12 +28,13 @@ public class Velocity9SyringeItem extends Item {
             return stack;
         }
 
+        // Check for any power that is susceptible to Velocity-9
         player.getCapability(PowerCapability.POWER_MANAGER).ifPresent(manager -> {
-            manager.getPower(ArtificialSpeedsterPower.POWER_ID).ifPresent(power -> {
-                if (power instanceof ArtificialSpeedsterPower artificialPower) {
-                    artificialPower.applyVelocity9(player);
-                }
-            });
+            manager.getAllPowers().values().stream()
+                    .filter(p -> p instanceof IVelocitySusceptible)
+                    .map(p -> (IVelocitySusceptible) p)
+                    .findFirst() // Affect the first susceptible power found
+                    .ifPresent(susceptiblePower -> susceptiblePower.applyVelocity9(player));
         });
 
         CriteriaTriggers.CONSUME_ITEM.trigger(player, stack);

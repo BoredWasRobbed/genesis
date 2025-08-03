@@ -69,6 +69,18 @@
       "x": 210,
       "y": 90,
       "type": "PASSIVE"
+    },
+    {
+      "id": "genesis:negative_speedster/kinetic_kickstart",
+      "name": "Kinetic Kickstart",
+      "description": "Instantly reach your maximum negative speed.",
+      "cost": 5,
+      "prerequisites": [
+        "genesis:negative_speedster/neg_speed_6"
+      ],
+      "x": 210,
+      "y": 50,
+      "type": "PASSIVE"
     }
   ]
 }

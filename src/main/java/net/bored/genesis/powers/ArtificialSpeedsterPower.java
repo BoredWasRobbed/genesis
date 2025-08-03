@@ -7,12 +7,11 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
-import net.minecraft.world.damagesource.DamageSource;
-import net.minecraft.world.damagesource.DamageTypes;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Player;
+import net.minecraftforge.common.ForgeMod;
 
 import java.util.Collections;
 import java.util.Map;
@@ -25,73 +24,100 @@ public class ArtificialSpeedsterPower implements ISkillPower {
 
     // --- Power State ---
     private static final UUID SPEED_MODIFIER_UUID = UUID.fromString("c8a5b8e3-5b8a-4f8e-a2d1-9a7c6a4d7a8b");
-    private double currentSpeedBonus = 0.0;
-    private int degenerationTimer = 0; // Time in ticks before degeneration starts
-    private int damageTicker = 0; // Ticker to control damage frequency
+    private static final UUID STEP_HEIGHT_UUID = UUID.fromString("70a1d9de-f27f-4a7a-bafc-561f0b36b8ae");
+    private final AttributeModifier stepHeightModifier = new AttributeModifier(STEP_HEIGHT_UUID, "Artificial Step Height", 1.0, AttributeModifier.Operation.ADDITION);
 
-    private static final int DEGENERATION_GRACE_PERIOD = 6000; // 5 minutes (5 * 60 * 20)
-    private static final int DAMAGE_INTERVAL = 40; // Every 2 seconds
+    private double v9SpeedBonus = 0.0;
+    private int v9Doses = 0;
+    private int v9DegenerationTimer = 0;
+    private int damageTicker = 0;
+
+    private static final int DEGENERATION_GRACE_PERIOD = 6000;
+    private static final int DAMAGE_INTERVAL = 40;
 
     @Override
     public void onTick(Player player) {
         if (player.level().isClientSide) return;
 
-        // Apply speed modifier
         AttributeInstance speedAttribute = player.getAttribute(Attributes.MOVEMENT_SPEED);
         if (speedAttribute != null) {
-            speedAttribute.removeModifier(SPEED_MODIFIER_UUID); // Remove old before applying new
-            if (currentSpeedBonus > 0) {
-                AttributeModifier speedModifier = new AttributeModifier(SPEED_MODIFIER_UUID, "Artificial Speed Boost", currentSpeedBonus, AttributeModifier.Operation.MULTIPLY_TOTAL);
+            speedAttribute.removeModifier(SPEED_MODIFIER_UUID);
+            if (v9SpeedBonus > 0) {
+                AttributeModifier speedModifier = new AttributeModifier(SPEED_MODIFIER_UUID, "Artificial Speed Boost", v9SpeedBonus, AttributeModifier.Operation.MULTIPLY_TOTAL);
                 speedAttribute.addPermanentModifier(speedModifier);
             }
         }
 
-        // Handle degeneration
-        if (degenerationTimer > 0) {
-            degenerationTimer--;
-        } else if (currentSpeedBonus > 0) { // Only degenerate if they've used V9 at least once
+        AttributeInstance stepHeightAttribute = player.getAttribute(ForgeMod.STEP_HEIGHT_ADDITION.get());
+        if (stepHeightAttribute != null && !stepHeightAttribute.hasModifier(stepHeightModifier)) {
+            stepHeightAttribute.addPermanentModifier(stepHeightModifier);
+        }
+
+        if (v9DegenerationTimer > 0) {
+            v9DegenerationTimer--;
+        } else if (v9SpeedBonus > 0) {
             damageTicker++;
             if (damageTicker >= DAMAGE_INTERVAL) {
-                player.hurt(player.damageSources().magic(), 1.0f); // Unblockable magic damage
+                player.hurt(player.damageSources().magic(), 1.0f);
                 damageTicker = 0;
             }
         }
     }
 
+    @Override
     public void applyVelocity9(Player player) {
-        this.currentSpeedBonus += 0.25; // Each dose adds 25% to the speed multiplier
-        this.degenerationTimer = DEGENERATION_GRACE_PERIOD; // Reset the grace period
-        this.damageTicker = 0; // Reset damage ticker
+        this.v9SpeedBonus += 0.5; // Artificial speedsters get a bigger permanent boost
+        this.v9Doses++;
+        this.v9DegenerationTimer = DEGENERATION_GRACE_PERIOD;
+        this.damageTicker = 0;
 
         player.level().playSound(null, player.blockPosition(), SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 0.8f, 1.5f);
         player.sendSystemMessage(Component.literal("Your speed potential grows, but at what cost?"));
     }
 
-    // --- Boilerplate and Data Management ---
     @Override
-    public ResourceLocation getRegistryName() { return this.registryName; }
-    @Override
-    public void setRegistryName(ResourceLocation name) { this.registryName = name; }
+    public int getToxicity() {
+        return this.v9Doses;
+    }
 
     @Override
     public CompoundTag serializeNBT() {
         CompoundTag nbt = new CompoundTag();
-        nbt.putDouble("currentSpeedBonus", this.currentSpeedBonus);
-        nbt.putInt("degenerationTimer", this.degenerationTimer);
+        nbt.putDouble("v9SpeedBonus", this.v9SpeedBonus);
+        nbt.putInt("v9Doses", this.v9Doses);
+        nbt.putInt("v9DegenerationTimer", this.v9DegenerationTimer);
         return nbt;
     }
 
     @Override
     public void deserializeNBT(CompoundTag nbt) {
-        this.currentSpeedBonus = nbt.getDouble("currentSpeedBonus");
-        this.degenerationTimer = nbt.getInt("degenerationTimer");
+        this.v9SpeedBonus = nbt.getDouble("v9SpeedBonus");
+        this.v9Doses = nbt.getInt("v9Doses");
+        this.v9DegenerationTimer = nbt.getInt("v9DegenerationTimer");
+    }
+
+    @Override
+    public void onRemoved(Player player) {
+        AttributeInstance speedAttribute = player.getAttribute(Attributes.MOVEMENT_SPEED);
+        if (speedAttribute != null) {
+            speedAttribute.removeModifier(SPEED_MODIFIER_UUID);
+        }
+        AttributeInstance stepHeightAttribute = player.getAttribute(ForgeMod.STEP_HEIGHT_ADDITION.get());
+        if (stepHeightAttribute != null) {
+            stepHeightAttribute.removeModifier(stepHeightModifier);
+        }
+    }
+
+    @Override
+    public void onPowerKey(Player player) {
+        player.sendSystemMessage(Component.literal("This power is passive. Use Velocity-9 to increase its effect."));
     }
 
     // --- Unused ISkillPower Methods ---
     @Override
     public void onPlayerUpdate(Player player) {}
     @Override
-    public ResourceLocation getSkillTreeId() { return null; } // No skill tree
+    public ResourceLocation getSkillTreeId() { return null; }
     @Override
     public boolean isSkillUnlocked(ResourceLocation skillId) { return false; }
     @Override
@@ -119,14 +145,7 @@ public class ArtificialSpeedsterPower implements ISkillPower {
     @Override
     public void onActivate(Player player) {}
     @Override
-    public void onRemoved(Player player) {
-        AttributeInstance speedAttribute = player.getAttribute(Attributes.MOVEMENT_SPEED);
-        if (speedAttribute != null) {
-            speedAttribute.removeModifier(SPEED_MODIFIER_UUID);
-        }
-    }
+    public ResourceLocation getRegistryName() { return this.registryName; }
     @Override
-    public void onPowerKey(Player player) {
-        player.sendSystemMessage(Component.literal("This power is passive. Use Velocity-9 to increase its effect."));
-    }
+    public void setRegistryName(ResourceLocation name) { this.registryName = name; }
 }

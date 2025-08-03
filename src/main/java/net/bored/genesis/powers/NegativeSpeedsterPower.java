@@ -1,5 +1,6 @@
 package net.bored.genesis.powers;
 
+import com.google.common.collect.ImmutableList;
 import net.bored.genesis.Genesis;
 import net.bored.genesis.core.powers.ISkillPower;
 import net.minecraft.nbt.CompoundTag;
@@ -8,14 +9,18 @@ import net.minecraft.nbt.StringTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
+import net.minecraftforge.common.ForgeMod;
 
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -37,22 +42,40 @@ public class NegativeSpeedsterPower implements ISkillPower {
     public static final ResourceLocation SKILL_NEGATIVE_SPEED_4 = new ResourceLocation(Genesis.MOD_ID, "negative_speedster/neg_speed_4");
     public static final ResourceLocation SKILL_NEGATIVE_SPEED_5 = new ResourceLocation(Genesis.MOD_ID, "negative_speedster/neg_speed_5");
     public static final ResourceLocation SKILL_NEGATIVE_SPEED_6 = new ResourceLocation(Genesis.MOD_ID, "negative_speedster/neg_speed_6");
+    public static final ResourceLocation SKILL_KINETIC_KICKSTART = new ResourceLocation(Genesis.MOD_ID, "negative_speedster/kinetic_kickstart");
 
+    private static final List<ResourceLocation> SPEED_SKILL_TIERS = ImmutableList.of(
+            SKILL_NEGATIVE_SPEED_1, SKILL_NEGATIVE_SPEED_2, SKILL_NEGATIVE_SPEED_3,
+            SKILL_NEGATIVE_SPEED_4, SKILL_NEGATIVE_SPEED_5, SKILL_NEGATIVE_SPEED_6
+    );
 
     // --- Power State ---
     private static final UUID SPEED_MODIFIER_UUID = UUID.fromString("a2b34e74-4208-444e-9845-2a2b85191a26");
-    private static final UUID KNOCKBACK_RESISTANCE_UUID = UUID.fromString("b8a5a4a5-3a75-4a5e-9e1a-1a8a9a2a3a4a");
+    private static final UUID V9_BOOST_UUID = UUID.fromString("8b5a3e1c-6f3e-4a1a-9c4c-2b8a7d4e3f2b");
+    private static final UUID STEP_HEIGHT_UUID = UUID.fromString("70a1d9de-f27f-4a7a-bafc-561f0b36b8ae");
 
-    private final AttributeModifier knockbackResistanceModifier = new AttributeModifier(KNOCKBACK_RESISTANCE_UUID, "Negative Speedster Knockback Resistance", 1.0, AttributeModifier.Operation.ADDITION);
+    private final AttributeModifier stepHeightModifier = new AttributeModifier(STEP_HEIGHT_UUID, "Negative Speedster Step Height", 1.0, AttributeModifier.Operation.ADDITION);
 
     private boolean isSpeedActive = true;
     private int sprintTicks = 0;
+    private int currentSpeedTier = 6;
+
+    // --- Velocity-9 State ---
+    private int v9Toxicity = 0;
+    private int v9DegenerationTimer = 0;
+    private int v9BoostTicks = 0;
+    private int damageTicker = 0;
+    private static final int V9_TOXICITY_THRESHOLD = 5;
+    private static final int DEGENERATION_GRACE_PERIOD = 6000;
+    private static final int DAMAGE_INTERVAL = 40;
+
 
     @Override
     public void onTick(Player player) {
         handleAttributes(player);
         handleWaterRunning(player);
         handleAcceleration(player);
+        handleV9Effects(player);
     }
 
     private void handleAcceleration(Player player) {
@@ -62,20 +85,34 @@ public class NegativeSpeedsterPower implements ISkillPower {
         speedAttribute.removeModifier(SPEED_MODIFIER_UUID);
 
         if (isSpeedActive && player.isSprinting()) {
-            sprintTicks++;
-
             double maxBonus = 0;
             double accelerationFactor = 0;
+            int highestUnlockedTier = 0;
 
-            if (isSkillUnlocked(SKILL_NEGATIVE_SPEED_6)) { maxBonus = 4.5; accelerationFactor = 0.022; }
-            else if (isSkillUnlocked(SKILL_NEGATIVE_SPEED_5)) { maxBonus = 4.0; accelerationFactor = 0.020; }
-            else if (isSkillUnlocked(SKILL_NEGATIVE_SPEED_4)) { maxBonus = 3.0; accelerationFactor = 0.018; }
-            else if (isSkillUnlocked(SKILL_NEGATIVE_SPEED_3)) { maxBonus = 2.0; accelerationFactor = 0.015; }
-            else if (isSkillUnlocked(SKILL_NEGATIVE_SPEED_2)) { maxBonus = 1.2; accelerationFactor = 0.010; }
-            else if (isSkillUnlocked(SKILL_NEGATIVE_SPEED_1)) { maxBonus = 0.7; accelerationFactor = 0.007; }
-            else { sprintTicks = 0; return; }
+            for (int i = 0; i < SPEED_SKILL_TIERS.size(); i++) {
+                if(isSkillUnlocked(SPEED_SKILL_TIERS.get(i))) {
+                    highestUnlockedTier = i + 1;
+                }
+            }
+            int effectiveTier = Math.min(currentSpeedTier, highestUnlockedTier);
 
-            double currentBonus = Math.min(maxBonus, sprintTicks * accelerationFactor);
+            switch(effectiveTier) {
+                case 1: maxBonus = 1.4; accelerationFactor = 0.014; break; // 0.7 * 2
+                case 2: maxBonus = 2.4; accelerationFactor = 0.020; break; // 1.2 * 2
+                case 3: maxBonus = 4.0; accelerationFactor = 0.030; break; // 2.0 * 2
+                case 4: maxBonus = 6.0; accelerationFactor = 0.036; break; // 3.0 * 2
+                case 5: maxBonus = 8.0; accelerationFactor = 0.040; break; // 4.0 * 2
+                case 6: maxBonus = 9.0; accelerationFactor = 0.044; break; // 4.5 * 2
+                default: sprintTicks = 0; return;
+            }
+
+            double currentBonus;
+            if (isSkillUnlocked(SKILL_KINETIC_KICKSTART)) {
+                currentBonus = maxBonus; // Instant acceleration
+            } else {
+                sprintTicks++;
+                currentBonus = Math.min(maxBonus, sprintTicks * accelerationFactor);
+            }
 
             AttributeModifier speedModifier = new AttributeModifier(SPEED_MODIFIER_UUID, "Negative Speedster Acceleration", currentBonus, AttributeModifier.Operation.MULTIPLY_TOTAL);
             speedAttribute.addPermanentModifier(speedModifier);
@@ -86,16 +123,15 @@ public class NegativeSpeedsterPower implements ISkillPower {
     }
 
     private void handleAttributes(Player player) {
-        AttributeInstance knockbackAttribute = player.getAttribute(Attributes.KNOCKBACK_RESISTANCE);
-        if (knockbackAttribute == null) return;
+        AttributeInstance stepHeightAttribute = player.getAttribute(ForgeMod.STEP_HEIGHT_ADDITION.get());
 
         if (isSpeedActive) {
-            if (!knockbackAttribute.hasModifier(knockbackResistanceModifier)) {
-                knockbackAttribute.addPermanentModifier(knockbackResistanceModifier);
+            if (stepHeightAttribute != null && !stepHeightAttribute.hasModifier(stepHeightModifier)) {
+                stepHeightAttribute.addPermanentModifier(stepHeightModifier);
             }
         } else {
-            if (knockbackAttribute.hasModifier(knockbackResistanceModifier)) {
-                knockbackAttribute.removeModifier(knockbackResistanceModifier);
+            if (stepHeightAttribute != null && stepHeightAttribute.hasModifier(stepHeightModifier)) {
+                stepHeightAttribute.removeModifier(stepHeightModifier);
             }
         }
     }
@@ -105,6 +141,31 @@ public class NegativeSpeedsterPower implements ISkillPower {
             Vec3 motion = player.getDeltaMovement();
             if (motion.y < 0) {
                 player.setDeltaMovement(motion.x, 0, motion.z);
+            }
+        }
+    }
+
+    private void handleV9Effects(Player player) {
+        AttributeInstance speedAttribute = player.getAttribute(Attributes.MOVEMENT_SPEED);
+        if (speedAttribute == null) return;
+
+        if (v9BoostTicks > 0) {
+            v9BoostTicks--;
+            if (v9BoostTicks == 0) {
+                speedAttribute.removeModifier(V9_BOOST_UUID);
+                player.sendSystemMessage(Component.literal("The Velocity-9 boost has worn off."));
+            }
+        }
+
+        if (v9Toxicity >= V9_TOXICITY_THRESHOLD) {
+            if (v9DegenerationTimer > 0) {
+                v9DegenerationTimer--;
+            } else {
+                damageTicker++;
+                if (damageTicker >= DAMAGE_INTERVAL) {
+                    player.hurt(player.damageSources().magic(), 1.0f);
+                    damageTicker = 0;
+                }
             }
         }
     }
@@ -129,29 +190,45 @@ public class NegativeSpeedsterPower implements ISkillPower {
         }
     }
 
-    @Override
-    public void activateSkill(Player player, int slot) {}
+    public void cycleTopSpeed(Player player, boolean cycleUp) {
+        int highestUnlockedTier = 0;
+        for (int i = 0; i < SPEED_SKILL_TIERS.size(); i++) {
+            if(isSkillUnlocked(SPEED_SKILL_TIERS.get(i))) {
+                highestUnlockedTier = i + 1;
+            }
+        }
+
+        if (highestUnlockedTier == 0) {
+            player.sendSystemMessage(Component.literal("Unlock speed skills to set a top speed."));
+            return;
+        }
+
+        int oldTier = currentSpeedTier;
+
+        if (cycleUp) {
+            currentSpeedTier = Math.min(highestUnlockedTier, currentSpeedTier + 1);
+        } else { // cycle down
+            currentSpeedTier = Math.max(1, currentSpeedTier - 1);
+        }
+
+        if(oldTier != currentSpeedTier) {
+            player.sendSystemMessage(Component.literal("Top speed set to Tier " + currentSpeedTier));
+        }
+    }
 
     @Override
     public void onRemoved(Player player) {
         AttributeInstance speedAttribute = player.getAttribute(Attributes.MOVEMENT_SPEED);
         if (speedAttribute != null) {
             speedAttribute.removeModifier(SPEED_MODIFIER_UUID);
+            speedAttribute.removeModifier(V9_BOOST_UUID);
         }
-        AttributeInstance knockbackAttribute = player.getAttribute(Attributes.KNOCKBACK_RESISTANCE);
-        if (knockbackAttribute != null) {
-            knockbackAttribute.removeModifier(knockbackResistanceModifier);
+        AttributeInstance stepHeightAttribute = player.getAttribute(ForgeMod.STEP_HEIGHT_ADDITION.get());
+        if (stepHeightAttribute != null) {
+            stepHeightAttribute.removeModifier(stepHeightModifier);
         }
     }
 
-    @Override
-    public void onActivate(Player player) {}
-
-    // --- Boilerplate and Data Management ---
-    @Override
-    public ResourceLocation getRegistryName() { return registryName; }
-    @Override
-    public void setRegistryName(ResourceLocation name) { this.registryName = name; }
     @Override
     public CompoundTag serializeNBT() {
         CompoundTag nbt = new CompoundTag();
@@ -166,8 +243,13 @@ public class NegativeSpeedsterPower implements ISkillPower {
         this.abilityBindings.forEach((slot, id) -> bindingsTag.putString(String.valueOf(slot), id.toString()));
         nbt.put("abilityBindings", bindingsTag);
         nbt.putBoolean("isSpeedActive", this.isSpeedActive);
+        nbt.putInt("currentSpeedTier", this.currentSpeedTier);
+        nbt.putInt("v9Toxicity", this.v9Toxicity);
+        nbt.putInt("v9DegenerationTimer", this.v9DegenerationTimer);
+        nbt.putInt("v9BoostTicks", this.v9BoostTicks);
         return nbt;
     }
+
     @Override
     public void deserializeNBT(CompoundTag nbt) {
         this.level = nbt.getInt("level");
@@ -184,10 +266,46 @@ public class NegativeSpeedsterPower implements ISkillPower {
             ResourceLocation id = new ResourceLocation(bindingsTag.getString(key));
             this.abilityBindings.put(slot, id);
         });
-        if (nbt.contains("isSpeedActive")) {
-            this.isSpeedActive = nbt.getBoolean("isSpeedActive");
-        }
+        this.isSpeedActive = nbt.getBoolean("isSpeedActive");
+        this.currentSpeedTier = nbt.getInt("currentSpeedTier");
+        this.v9Toxicity = nbt.getInt("v9Toxicity");
+        this.v9DegenerationTimer = nbt.getInt("v9DegenerationTimer");
+        this.v9BoostTicks = nbt.getInt("v9BoostTicks");
     }
+
+    @Override
+    public void applyVelocity9(Player player) {
+        AttributeInstance speedAttribute = player.getAttribute(Attributes.MOVEMENT_SPEED);
+        if (speedAttribute == null) return;
+
+        speedAttribute.removeModifier(V9_BOOST_UUID);
+        AttributeModifier v9boost = new AttributeModifier(V9_BOOST_UUID, "V9 Temporary Boost", 4.0, AttributeModifier.Operation.MULTIPLY_TOTAL);
+        speedAttribute.addPermanentModifier(v9boost);
+
+        this.v9BoostTicks = 600; // 30 seconds
+        this.v9Toxicity++;
+        if (this.v9Toxicity >= V9_TOXICITY_THRESHOLD) {
+            this.v9DegenerationTimer = DEGENERATION_GRACE_PERIOD;
+        }
+
+        player.level().playSound(null, player.blockPosition(), SoundEvents.ZOMBIE_VILLAGER_CURE, SoundSource.PLAYERS, 0.8f, 1.5f);
+        player.sendSystemMessage(Component.literal("Velocity-9 surges through you, granting immense temporary speed!"));
+    }
+
+    @Override
+    public int getToxicity() {
+        return this.v9Toxicity;
+    }
+
+    // --- Unused / Boilerplate ---
+    @Override
+    public void onActivate(Player player) {}
+    @Override
+    public void activateSkill(Player player, int slot) {}
+    @Override
+    public ResourceLocation getRegistryName() { return registryName; }
+    @Override
+    public void setRegistryName(ResourceLocation name) { this.registryName = name; }
     @Override
     public ResourceLocation getSkillTreeId() { return new ResourceLocation(Genesis.MOD_ID, "negative_speedster"); }
     @Override
@@ -228,7 +346,6 @@ public class NegativeSpeedsterPower implements ISkillPower {
     }
     @Override
     public ResourceLocation getAbilityBinding(int slot) { return this.abilityBindings.get(slot); }
-
     @Override
     public Map<Integer, ResourceLocation> getAbilityBindings() { return this.abilityBindings; }
 }

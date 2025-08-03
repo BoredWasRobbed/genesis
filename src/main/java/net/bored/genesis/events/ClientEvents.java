@@ -4,8 +4,11 @@ import net.bored.genesis.Genesis;
 import net.bored.genesis.network.PacketHandler;
 import net.bored.genesis.network.packets.ActivateAbilityC2SPacket;
 import net.bored.genesis.network.packets.ActivatePowerC2SPacket;
+import net.bored.genesis.network.packets.CycleTopSpeedC2SPacket;
 import net.bored.genesis.network.packets.RequestOpenSkillTreeC2SPacket;
 import net.bored.genesis.util.Keybindings;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.InputEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -20,7 +23,13 @@ public class ClientEvents {
             PacketHandler.sendToServer(new RequestOpenSkillTreeC2SPacket());
         }
         if (Keybindings.POWER_KEY.consumeClick()) {
-            PacketHandler.sendToServer(new ActivatePowerC2SPacket());
+            if (Keybindings.VARIANT_KEY.isDown()) {
+                PacketHandler.sendToServer(new CycleTopSpeedC2SPacket(true)); // Cycle Up
+            } else if (Screen.hasControlDown()) {
+                PacketHandler.sendToServer(new CycleTopSpeedC2SPacket(false)); // Cycle Down
+            } else {
+                PacketHandler.sendToServer(new ActivatePowerC2SPacket());
+            }
         }
         if (Keybindings.ABILITY_1_KEY.consumeClick()) {
             PacketHandler.sendToServer(new ActivateAbilityC2SPacket(0));

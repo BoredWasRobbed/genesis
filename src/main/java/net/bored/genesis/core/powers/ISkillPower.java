@@ -5,7 +5,7 @@ import net.minecraft.world.entity.player.Player;
 
 import java.util.Map;
 
-public interface ISkillPower extends IPower {
+public interface ISkillPower extends IPower, IVelocitySusceptible {
 
     void onPlayerUpdate(Player player);
     ResourceLocation getSkillTreeId();
