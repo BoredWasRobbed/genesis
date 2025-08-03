@@ -1,6 +1,8 @@
 package net.bored.genesis.core.powers;
 
 import net.bored.genesis.Genesis;
+import net.bored.genesis.powers.ArtificialSpeedsterPower;
+import net.bored.genesis.powers.NegativeSpeedsterPower;
 import net.bored.genesis.powers.SpeedsterPower;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.registries.DeferredRegister;
@@ -43,4 +45,7 @@ public class PowerRegistry {
 
     // --- REGISTER POWERS HERE ---
     public static final RegistryObject<IPower> SPEEDSTER = POWER_REGISTRY.register("speedster", SpeedsterPower::new);
+    public static final RegistryObject<IPower> NEGATIVE_SPEEDSTER = POWER_REGISTRY.register("negative_speedster", NegativeSpeedsterPower::new);
+    public static final RegistryObject<IPower> ARTIFICIAL_SPEEDSTER = POWER_REGISTRY.register("artificial_speedster", ArtificialSpeedsterPower::new);
+
 }

@@ -1,0 +1,74 @@
+{
+  "skills": [
+    {
+      "id": "genesis:negative_speedster/neg_speed_1",
+      "name": "Corrupted Velocity",
+      "description": "Tap into the Negative Speed Force for a speed boost.",
+      "cost": 1,
+      "prerequisites": [],
+      "x": 10,
+      "y": 50,
+      "type": "PASSIVE"
+    },
+    {
+      "id": "genesis:negative_speedster/neg_speed_2",
+      "name": "Speed Drain",
+      "description": "Your speed becomes more potent and parasitic.",
+      "cost": 2,
+      "prerequisites": [
+        "genesis:negative_speedster/neg_speed_1"
+      ],
+      "x": 50,
+      "y": 90,
+      "type": "PASSIVE"
+    },
+    {
+      "id": "genesis:negative_speedster/neg_speed_3",
+      "name": "Negative Flash",
+      "description": "Further enhances your top speed.",
+      "cost": 3,
+      "prerequisites": [
+        "genesis:negative_speedster/neg_speed_2"
+      ],
+      "x": 90,
+      "y": 50,
+      "type": "PASSIVE"
+    },
+    {
+      "id": "genesis:negative_speedster/neg_speed_4",
+      "name": "Entropic Acceleration",
+      "description": "You move with chaotic, entropic energy.",
+      "cost": 3,
+      "prerequisites": [
+        "genesis:negative_speedster/neg_speed_3"
+      ],
+      "x": 130,
+      "y": 90,
+      "type": "PASSIVE"
+    },
+    {
+      "id": "genesis:negative_speedster/neg_speed_5",
+      "name": "Temporal Leech",
+      "description": "Your speed begins to warp time around you.",
+      "cost": 4,
+      "prerequisites": [
+        "genesis:negative_speedster/neg_speed_4"
+      ],
+      "x": 170,
+      "y": 50,
+      "type": "PASSIVE"
+    },
+    {
+      "id": "genesis:negative_speedster/neg_speed_6",
+      "name": "Paradox",
+      "description": "Become a living paradox, reaching the peak of negative speed.",
+      "cost": 5,
+      "prerequisites": [
+        "genesis:negative_speedster/neg_speed_5"
+      ],
+      "x": 210,
+      "y": 90,
+      "type": "PASSIVE"
+    }
+  ]
+}

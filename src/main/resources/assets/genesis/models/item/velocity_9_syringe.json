@@ -1,0 +1,6 @@
+{
+  "parent": "item/generated",
+  "textures": {
+    "layer0": "genesis:item/velocity_9_syringe"
+  }
+}

@@ -5,13 +5,14 @@ import net.bored.genesis.command.GenesisCommands;
 import net.bored.genesis.core.events.CapabilityEvents;
 import net.bored.genesis.core.powers.PowerRegistry;
 import net.bored.genesis.core.skills.SkillTreeManager;
+import net.bored.genesis.item.CreativeModeTabs;
+import net.bored.genesis.item.ItemRegistry;
 import net.bored.genesis.network.PacketHandler;
 import net.bored.genesis.util.Keybindings;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.RegisterKeyMappingsEvent;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.AddReloadListenerEvent;
-import net.minecraftforge.event.BuildCreativeModeTabContentsEvent;
 import net.minecraftforge.event.server.ServerStartingEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -31,6 +32,9 @@ public class Genesis {
     public Genesis() {
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
 
+        // Register Content
+        ItemRegistry.ITEMS.register(modEventBus);
+        CreativeModeTabs.CREATIVE_MODE_TABS.register(modEventBus);
         PowerRegistry.POWER_REGISTRY.register(modEventBus);
 
         modEventBus.addListener(this::commonSetup);
@@ -40,9 +44,6 @@ public class Genesis {
 
     private void commonSetup(final FMLCommonSetupEvent event) {
         event.enqueueWork(PacketHandler::register);
-    }
-
-    private void addCreative(BuildCreativeModeTabContentsEvent event) {
     }
 
     @SubscribeEvent

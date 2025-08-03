@@ -6,5 +6,13 @@
   "key.genesis.ability_2": "Ability 2",
   "key.genesis.ability_3": "Ability 3",
   "key.genesis.ability_4": "Ability 4",
-  "key.genesis.ability_5": "Ability 5"
+  "key.genesis.ability_5": "Ability 5",
+
+  "item.genesis.vial": "Vial",
+  "item.genesis.vial_speedforce": "Vial of Speed Force",
+  "item.genesis.syringe": "Syringe",
+  "item.genesis.velocity_9_syringe": "Velocity-9 Syringe",
+  "item.genesis.velocity_9_syringe.tooltip": "Grants a permanent speed boost, but at a terrible cost.",
+
+  "itemGroup.genesis_tab": "Genesis"
 }
