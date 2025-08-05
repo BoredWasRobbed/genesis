@@ -19,4 +19,18 @@ public interface IPower extends INBTSerializable<CompoundTag> {
 
     ResourceLocation getRegistryName();
     void setRegistryName(ResourceLocation name);
+
+    /**
+     * Gets the integer representation of the trail color (0xAARRGGBB).
+     * Alpha is typically handled separately by the renderer.
+     * A value of 0 can be used to signify that this power should not produce a trail.
+     * @return The integer color of the trail, or 0 for no trail.
+     */
+    int getTrailColor();
+
+    /**
+     * Sets the trail color for this power.
+     * @param color The new color as an integer (e.g., 0xFFFFFF00 for yellow).
+     */
+    void setTrailColor(int color);
 }

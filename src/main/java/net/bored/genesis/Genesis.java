@@ -1,8 +1,10 @@
 package net.bored.genesis;
 
 import com.mojang.logging.LogUtils;
+import net.bored.genesis.client.effects.LightningTrailHandler;
 import net.bored.genesis.command.GenesisCommands;
 import net.bored.genesis.core.events.CapabilityEvents;
+import net.bored.genesis.core.events.PlayerEvents;
 import net.bored.genesis.core.powers.PowerRegistry;
 import net.bored.genesis.core.skills.SkillTreeManager;
 import net.bored.genesis.item.CreativeModeTabs;
@@ -39,7 +41,10 @@ public class Genesis {
 
         modEventBus.addListener(this::commonSetup);
         MinecraftForge.EVENT_BUS.register(this);
+
+        // Register event handlers
         MinecraftForge.EVENT_BUS.register(new CapabilityEvents());
+        MinecraftForge.EVENT_BUS.register(new PlayerEvents());
     }
 
     private void commonSetup(final FMLCommonSetupEvent event) {
@@ -59,8 +64,14 @@ public class Genesis {
 
     @Mod.EventBusSubscriber(modid = MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
     public static class ClientModEvents {
+        // --- FIX: Add a field for the handler ---
+        public static LightningTrailHandler lightningTrailHandler;
+
         @SubscribeEvent
         public static void onClientSetup(FMLClientSetupEvent event) {
+            // --- FIX: Instantiate the handler here ---
+            // This event only runs on the client, making it safe from server-side crashes.
+            lightningTrailHandler = new LightningTrailHandler();
         }
 
         @SubscribeEvent

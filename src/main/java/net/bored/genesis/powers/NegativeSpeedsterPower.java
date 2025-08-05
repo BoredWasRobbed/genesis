@@ -3,6 +3,8 @@ package net.bored.genesis.powers;
 import com.google.common.collect.ImmutableList;
 import net.bored.genesis.Genesis;
 import net.bored.genesis.core.powers.ISkillPower;
+import net.bored.genesis.network.PacketHandler;
+import net.bored.genesis.network.packets.SyncPowerDataS2CPacket;
 import net.minecraft.ChatFormatting;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -10,6 +12,7 @@ import net.minecraft.nbt.StringTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
@@ -36,6 +39,7 @@ public class NegativeSpeedsterPower implements ISkillPower {
     private final Set<ResourceLocation> unlockedSkills = new HashSet<>();
     private final Set<ResourceLocation> activeSkills = new HashSet<>();
     private final Map<Integer, ResourceLocation> abilityBindings = new HashMap<>();
+    private int trailColor = 0xFFFF0000; // Default Red
 
     // --- Skill IDs ---
     public static final ResourceLocation SKILL_NEGATIVE_SPEED_1 = new ResourceLocation(Genesis.MOD_ID, "negative_speedster/neg_speed_1");
@@ -75,6 +79,15 @@ public class NegativeSpeedsterPower implements ISkillPower {
     private static final int DEGENERATION_GRACE_PERIOD = 6000;
     private static final int DAMAGE_INTERVAL = 40;
 
+    @Override
+    public int getTrailColor() {
+        return this.isSpeedActive ? this.trailColor : 0;
+    }
+
+    @Override
+    public void setTrailColor(int color) {
+        this.trailColor = color;
+    }
 
     @Override
     public void onTick(Player player) {
@@ -212,6 +225,11 @@ public class NegativeSpeedsterPower implements ISkillPower {
         player.displayClientMessage(message, true);
         player.level().playSound(null, player.blockPosition(), SoundEvents.NOTE_BLOCK_PLING.get(), SoundSource.PLAYERS, 0.7F, pitch);
 
+        // --- FIX: SYNC STATE CHANGE TO CLIENT ---
+        if (!player.level().isClientSide && player instanceof ServerPlayer serverPlayer) {
+            PacketHandler.sendToPlayer(new SyncPowerDataS2CPacket(this.getRegistryName(), this.serializeNBT()), serverPlayer);
+        }
+
         if (!this.isSpeedActive) {
             sprintTicks = 0;
             AttributeInstance speedAttribute = player.getAttribute(Attributes.MOVEMENT_SPEED);
@@ -289,6 +307,7 @@ public class NegativeSpeedsterPower implements ISkillPower {
         nbt.putInt("v9Toxicity", this.v9Toxicity);
         nbt.putInt("v9DegenerationTimer", this.v9DegenerationTimer);
         nbt.putInt("v9BoostTicks", this.v9BoostTicks);
+        nbt.putInt("trailColor", this.trailColor);
         return nbt;
     }
 
@@ -319,6 +338,9 @@ public class NegativeSpeedsterPower implements ISkillPower {
         this.v9Toxicity = nbt.getInt("v9Toxicity");
         this.v9DegenerationTimer = nbt.getInt("v9DegenerationTimer");
         this.v9BoostTicks = nbt.getInt("v9BoostTicks");
+        if (nbt.contains("trailColor", Tag.TAG_INT)) {
+            this.trailColor = nbt.getInt("trailColor");
+        }
     }
 
     @Override

@@ -3,6 +3,7 @@ package net.bored.genesis.powers;
 import net.bored.genesis.Genesis;
 import net.bored.genesis.core.powers.ISkillPower;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.sounds.SoundEvents;
@@ -22,6 +23,7 @@ public class ArtificialSpeedsterPower implements ISkillPower {
 
     public static final ResourceLocation POWER_ID = new ResourceLocation(Genesis.MOD_ID, "artificial_speedster");
     private ResourceLocation registryName;
+    private int trailColor = 0xFF00BFFF; // Default DeepSkyBlue
 
     // --- Power State ---
     private static final UUID SPEED_MODIFIER_UUID = UUID.fromString("c8a5b8e3-5b8a-4f8e-a2d1-9a7c6a4d7a8b");
@@ -37,6 +39,20 @@ public class ArtificialSpeedsterPower implements ISkillPower {
     private static final int DAMAGE_INTERVAL = 40;
 
     @Override
+    public int getTrailColor() {
+        // --- FIX ---
+        // The handler now checks `isSpeedActive` on its own. This method should always
+        // return the power's true color so the handler knows what to draw.
+        // It will return 0 if the power is toggled off.
+        return this.v9SpeedBonus > 0 ? this.trailColor : 0;
+    }
+
+    @Override
+    public void setTrailColor(int color) {
+        this.trailColor = color;
+    }
+
+    @Override
     public void onTick(Player player) {
         if (player.level().isClientSide) return;
 
@@ -50,8 +66,10 @@ public class ArtificialSpeedsterPower implements ISkillPower {
         }
 
         AttributeInstance stepHeightAttribute = player.getAttribute(ForgeMod.STEP_HEIGHT_ADDITION.get());
-        if (stepHeightAttribute != null && !stepHeightAttribute.hasModifier(stepHeightModifier)) {
+        if (stepHeightAttribute != null && v9SpeedBonus > 0 && !stepHeightAttribute.hasModifier(stepHeightModifier)) {
             stepHeightAttribute.addPermanentModifier(stepHeightModifier);
+        } else if (stepHeightAttribute != null && v9SpeedBonus <= 0 && stepHeightAttribute.hasModifier(stepHeightModifier)) {
+            stepHeightAttribute.removeModifier(stepHeightModifier);
         }
 
         if (v9DegenerationTimer > 0) {
@@ -87,6 +105,7 @@ public class ArtificialSpeedsterPower implements ISkillPower {
         nbt.putDouble("v9SpeedBonus", this.v9SpeedBonus);
         nbt.putInt("v9Doses", this.v9Doses);
         nbt.putInt("v9DegenerationTimer", this.v9DegenerationTimer);
+        nbt.putInt("trailColor", this.trailColor);
         return nbt;
     }
 
@@ -95,6 +114,9 @@ public class ArtificialSpeedsterPower implements ISkillPower {
         this.v9SpeedBonus = nbt.getDouble("v9SpeedBonus");
         this.v9Doses = nbt.getInt("v9Doses");
         this.v9DegenerationTimer = nbt.getInt("v9DegenerationTimer");
+        if (nbt.contains("trailColor", Tag.TAG_INT)) {
+            this.trailColor = nbt.getInt("trailColor");
+        }
     }
 
     @Override

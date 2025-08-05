@@ -12,6 +12,8 @@ import net.bored.genesis.core.powers.ISkillPower;
 import net.bored.genesis.core.powers.PowerManager;
 import net.bored.genesis.core.powers.PowerRegistry;
 import net.bored.genesis.core.skills.Skill;
+import net.bored.genesis.network.PacketHandler;
+import net.bored.genesis.network.packets.SyncPowerDataS2CPacket;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -40,11 +42,43 @@ public class PowerCommand {
                 .then(Commands.literal("remove").then(Commands.argument("power_id", ResourceLocationArgument.id()).suggests((ctx, builder) -> { try { ServerPlayer player = ctx.getSource().getPlayerOrException(); player.getCapability(PowerCapability.POWER_MANAGER).ifPresent(manager -> { manager.getAllPowers().keySet().forEach(id -> builder.suggest(id.toString())); }); } catch (CommandSyntaxException e) {} return builder.buildFuture(); }).executes(PowerCommand::removePower)))
                 .then(Commands.literal("list").executes(PowerCommand::listPowers))
                 .then(Commands.literal("info").then(Commands.argument("power_id", ResourceLocationArgument.id()).suggests(POWER_SUGGESTIONS).executes(PowerCommand::info)))
+                .then(Commands.literal("color")
+                        .then(Commands.argument("power_id", ResourceLocationArgument.id()).suggests(POWER_SUGGESTIONS)
+                                .then(Commands.argument("r", IntegerArgumentType.integer(0, 255))
+                                        .then(Commands.argument("g", IntegerArgumentType.integer(0, 255))
+                                                .then(Commands.argument("b", IntegerArgumentType.integer(0, 255))
+                                                        .executes(PowerCommand::setTrailColor))))))
                 .then(Commands.literal("skill")
                         .then(Commands.literal("list").then(Commands.argument("power_id", ResourceLocationArgument.id()).suggests(POWER_SUGGESTIONS).executes(PowerCommand::listSkills)))
                         .then(Commands.literal("unlock").then(Commands.argument("power_id", ResourceLocationArgument.id()).suggests(POWER_SUGGESTIONS).then(Commands.argument("skill_id", ResourceLocationArgument.id()).suggests((ctx, builder) -> { try { ResourceLocation powerId = ResourceLocationArgument.getId(ctx, "power_id"); IPower power = PowerRegistry.REGISTRY.get().getValue(powerId); if (power instanceof ISkillPower skillPower) { Genesis.SKILL_TREE_MANAGER.getSkillTree(skillPower.getSkillTreeId()).ifPresent(tree -> tree.getAllSkills().keySet().forEach(id -> builder.suggest(id.toString()))); } } catch (Exception e) {} return builder.buildFuture(); }).executes(PowerCommand::unlockSkill))))
                         .then(Commands.literal("sp").then(Commands.literal("add").then(Commands.argument("power_id", ResourceLocationArgument.id()).suggests(POWER_SUGGESTIONS).then(Commands.argument("amount", IntegerArgumentType.integer()).executes(PowerCommand::addSkillPoints))))))
                 .then(Commands.literal("xp").then(Commands.literal("add").then(Commands.argument("power_id", ResourceLocationArgument.id()).suggests(POWER_SUGGESTIONS).then(Commands.argument("amount", IntegerArgumentType.integer()).executes(PowerCommand::addExperience)))));
+    }
+
+    private static int setTrailColor(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        ServerPlayer player = context.getSource().getPlayerOrException();
+        ResourceLocation powerId = ResourceLocationArgument.getId(context, "power_id");
+        int r = IntegerArgumentType.getInteger(context, "r");
+        int g = IntegerArgumentType.getInteger(context, "g");
+        int b = IntegerArgumentType.getInteger(context, "b");
+
+        player.getCapability(PowerCapability.POWER_MANAGER).ifPresent(manager -> {
+            manager.getPower(powerId).ifPresentOrElse(power -> {
+                int color = (0xFF << 24) | (r << 16) | (g << 8) | b;
+                power.setTrailColor(color);
+
+                // Sync the change to the client
+                PacketHandler.sendToPlayer(new SyncPowerDataS2CPacket(powerId, power.serializeNBT()), player);
+
+                context.getSource().sendSuccess(() -> Component.literal("Set trail color for ")
+                        .append(Component.literal(powerId.toString()).withStyle(ChatFormatting.AQUA))
+                        .append(" to ")
+                        .append(Component.literal(String.format("#%02X%02X%02X", r, g, b)).withStyle(ChatFormatting.YELLOW)), true);
+            }, () -> {
+                context.getSource().sendFailure(Component.literal("Player does not have power: " + powerId));
+            });
+        });
+        return 1;
     }
 
     private static int info(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {

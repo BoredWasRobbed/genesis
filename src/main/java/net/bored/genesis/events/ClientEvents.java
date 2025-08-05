@@ -11,6 +11,8 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.InputEvent;
+import net.minecraftforge.client.event.RenderLevelStageEvent;
+import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
@@ -45,6 +47,26 @@ public class ClientEvents {
         }
         if (Keybindings.ABILITY_5_KEY.consumeClick()) {
             PacketHandler.sendToServer(new ActivateAbilityC2SPacket(4));
+        }
+    }
+
+    @SubscribeEvent
+    public static void onClientTick(TickEvent.ClientTickEvent event) {
+        if (event.phase == TickEvent.Phase.END && Minecraft.getInstance().player != null) {
+            // --- FIX: Use the safely instantiated handler from the main mod class ---
+            if (Genesis.ClientModEvents.lightningTrailHandler != null) {
+                Genesis.ClientModEvents.lightningTrailHandler.onClientTick();
+            }
+        }
+    }
+
+    @SubscribeEvent
+    public static void onRenderLevelLast(RenderLevelStageEvent event) {
+        if (event.getStage() == RenderLevelStageEvent.Stage.AFTER_PARTICLES) {
+            // --- FIX: Use the safely instantiated handler ---
+            if (Genesis.ClientModEvents.lightningTrailHandler != null) {
+                Genesis.ClientModEvents.lightningTrailHandler.onRender(event.getPoseStack(), event.getPartialTick());
+            }
         }
     }
 }

@@ -7,6 +7,7 @@ import net.bored.genesis.network.packets.BindAbilityC2SPacket;
 import net.bored.genesis.network.packets.CycleTopSpeedC2SPacket;
 import net.bored.genesis.network.packets.OpenSkillTreeS2CPacket;
 import net.bored.genesis.network.packets.RequestOpenSkillTreeC2SPacket;
+import net.bored.genesis.network.packets.SyncPowerDataS2CPacket;
 import net.bored.genesis.network.packets.ToggleSkillC2SPacket;
 import net.bored.genesis.network.packets.UnlockSkillC2SPacket;
 import net.bored.genesis.network.packets.UpdateSkillTreeS2CPacket;
@@ -45,6 +46,7 @@ public class PacketHandler {
         // S2C
         INSTANCE.messageBuilder(OpenSkillTreeS2CPacket.class, id(), NetworkDirection.PLAY_TO_CLIENT).encoder(OpenSkillTreeS2CPacket::toBytes).decoder(OpenSkillTreeS2CPacket::new).consumerMainThread(OpenSkillTreeS2CPacket::handle).add();
         INSTANCE.messageBuilder(UpdateSkillTreeS2CPacket.class, id(), NetworkDirection.PLAY_TO_CLIENT).encoder(UpdateSkillTreeS2CPacket::toBytes).decoder(UpdateSkillTreeS2CPacket::new).consumerMainThread(UpdateSkillTreeS2CPacket::handle).add();
+        INSTANCE.messageBuilder(SyncPowerDataS2CPacket.class, id(), NetworkDirection.PLAY_TO_CLIENT).encoder(SyncPowerDataS2CPacket::toBytes).decoder(SyncPowerDataS2CPacket::new).consumerMainThread(SyncPowerDataS2CPacket::handle).add();
     }
 
     public static <MSG> void sendToServer(MSG message) {
