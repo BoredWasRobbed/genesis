@@ -12,6 +12,7 @@ import net.minecraft.world.phys.Vec3;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
@@ -19,12 +20,12 @@ import java.util.stream.Collectors;
 
 /**
  * The main client-side manager for the entire lightning effect.
- * It decides when to create, update, and render trails based on player actions.
+ * This version generates continuous, branching trails from multiple body points.
  */
 public class LightningTrailHandler {
 
     private final Map<UUID, List<LightningTrail>> activeTrails = new ConcurrentHashMap<>();
-    private final Map<UUID, Boolean> wasPowerActiveLastTick = new ConcurrentHashMap<>();
+    private final Random random = new Random();
 
     public LightningTrailHandler() {}
 
@@ -32,16 +33,18 @@ public class LightningTrailHandler {
         Player player = Minecraft.getInstance().player;
         if (player == null || Minecraft.getInstance().isPaused()) {
             activeTrails.clear();
-            wasPowerActiveLastTick.clear();
             return;
         }
 
+        // 1. Tick all trails for all players and remove any that are fully faded.
         activeTrails.values().forEach(list -> {
             list.forEach(LightningTrail::tick);
             list.removeIf(trail -> !trail.isAlive());
         });
         activeTrails.entrySet().removeIf(entry -> entry.getValue().isEmpty());
 
+
+        // 2. Determine if a power is currently active.
         AtomicReference<IPower> activePowerRef = new AtomicReference<>(null);
         player.getCapability(PowerCapability.POWER_MANAGER).ifPresent(powerManager -> {
             powerManager.getAllPowers().values().stream()
@@ -51,20 +54,30 @@ public class LightningTrailHandler {
         });
         IPower activePower = activePowerRef.get();
 
-        boolean isPowerActiveThisTick = activePower != null;
-        boolean wasActive = wasPowerActiveLastTick.getOrDefault(player.getUUID(), false);
-
-        if (isPowerActiveThisTick && !wasActive) {
+        if (activePower != null) {
+            // --- FIX FOR STATE ISSUES ---
+            // 3. If power is active, ensure trunk trails exist.
+            // This logic will run on login, after standing still, and after re-toggling.
             List<LightningTrail> playerTrails = activeTrails.computeIfAbsent(player.getUUID(), k -> new ArrayList<>());
-            // --- CHANGE: Create thinner trails ---
-            // Torso trail
-            playerTrails.add(new LightningTrail(activePower.getTrailColor(), 0.06f, 20, false));
-            // Two leg trails
-            playerTrails.add(new LightningTrail(activePower.getTrailColor(), 0.04f, 15, false));
-            playerTrails.add(new LightningTrail(activePower.getTrailColor(), 0.04f, 15, false));
-        }
+            boolean hasTrunks = playerTrails.stream().anyMatch(t -> !t.isBranch);
 
-        wasPowerActiveLastTick.put(player.getUUID(), isPowerActiveThisTick);
+            if (!hasTrunks) {
+                // If there are no trunks, it means we need to create a new set.
+                // Clear any lingering branches just in case.
+                playerTrails.clear();
+
+                int trailCount = 15;
+                for (int i = 0; i < trailCount; i++) {
+                    float width = 0.03f + random.nextFloat() * 0.04f; // Random width
+                    // --- EDIT: Set a fixed lifetime for all trails ---
+                    int lifetime = 20;
+                    float yOffset = 0.1f + random.nextFloat() * 0.9f; // Random height from feet to head
+                    float xzOffsetFactor = random.nextFloat(); // Random distance from center
+                    boolean startsOnRightSide = random.nextBoolean();
+                    playerTrails.add(new LightningTrail(activePower.getTrailColor(), width, lifetime, false, yOffset, xzOffsetFactor, startsOnRightSide));
+                }
+            }
+        }
     }
 
     public void onRender(PoseStack poseStack, float partialTick) {
@@ -79,6 +92,7 @@ public class LightningTrailHandler {
                 .orElse(false);
 
         if (powerActive) {
+            // Get all trunk trails to update them from different body points
             List<LightningTrail> trunkTrails = playerTrails.stream().filter(t -> !t.isBranch).collect(Collectors.toList());
             if (trunkTrails.isEmpty()) return;
 
@@ -90,24 +104,15 @@ public class LightningTrailHandler {
             Vec3 interpolatedPosition = new Vec3(pX, pY, pZ);
 
             Vec3 motion = player.getDeltaMovement();
-            // --- CHANGE: Calculate new origin points for legs/torso ---
-            Vec3 torsoOrigin = interpolatedPosition.add(0, player.getBbHeight() * 0.6, 0);
-            Vec3 legOrigin = interpolatedPosition.add(0, player.getBbHeight() * 0.2, 0);
 
-            Vec3 rightVec = player.getLookAngle().cross(new Vec3(0, 1, 0)).normalize().scale(0.3);
+            for (LightningTrail trunk : trunkTrails) {
+                float height = player.getBbHeight();
+                float yPos = height * trunk.yOffset;
 
-            for (int i = 0; i < trunkTrails.size(); i++) {
-                LightningTrail trunk = trunkTrails.get(i);
-                Vec3 originPoint;
+                Vec3 rightVec = player.getLookAngle().cross(new Vec3(0, 1, 0)).normalize().scale(0.3 * trunk.xzOffsetFactor);
+                if(!trunk.startsOnRightSide) rightVec = rightVec.reverse();
 
-                // Assign origins based on order
-                if (i == 0) { // Torso trail
-                    originPoint = torsoOrigin;
-                } else if (i == 1) { // Right leg trail
-                    originPoint = legOrigin.add(rightVec);
-                } else { // Left leg trail (assuming i == 2)
-                    originPoint = legOrigin.subtract(rightVec);
-                }
+                Vec3 originPoint = interpolatedPosition.add(rightVec.x, yPos, rightVec.z);
 
                 if (motion.lengthSqr() > 0.001) {
                     originPoint = originPoint.subtract(motion.normalize().scale(0.2));
@@ -116,11 +121,13 @@ public class LightningTrailHandler {
                 trunk.generateSegments(originPoint, newBranches);
             }
 
+            // Add any newly created branches to the main list
             if (!newBranches.isEmpty()) {
                 playerTrails.addAll(newBranches);
             }
         }
 
+        // Render ALL trails (trunks and branches) for the player.
         LightningRenderer.render(poseStack, playerTrails);
     }
 }

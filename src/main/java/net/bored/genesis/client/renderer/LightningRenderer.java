@@ -35,7 +35,6 @@ public class LightningRenderer {
         BufferBuilder buffer = tesselator.getBuilder();
 
         RenderSystem.enableBlend();
-        // --- FIX: Corrected blend function call ---
         RenderSystem.blendFunc(GlStateManager.SourceFactor.SRC_ALPHA, GlStateManager.DestFactor.ONE);
         RenderSystem.setShader(GameRenderer::getPositionColorShader); // No texture is needed
         RenderSystem.disableCull();

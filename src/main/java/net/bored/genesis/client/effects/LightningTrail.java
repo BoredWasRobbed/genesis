@@ -21,7 +21,6 @@ public class LightningTrail {
     public static class TrailPoint {
         public final Vec3 position;
         public final long creationTime;
-        public boolean hasBranched = false; // Prevents a point from creating infinite branches
 
         public TrailPoint(Vec3 position) {
             this.position = position;
@@ -33,15 +32,28 @@ public class LightningTrail {
     private Vec3 lastAddedPoint = null;
     private final int color;
     private final float width;
-    private final long maxLifetimeMillis; // Lifetime is now in milliseconds for smooth fading
+    private final long maxLifetimeMillis;
     private final Random random = new Random();
-    public final boolean isBranch; // --- FIX: Changed to public ---
+    public final boolean isBranch;
 
-    public LightningTrail(int color, float width, int lifetimeTicks, boolean isBranch) {
+    // --- FIELDS FOR STABLE ORIGIN ---
+    public final float yOffset;
+    public final float xzOffsetFactor;
+    public final boolean startsOnRightSide; // --- NEW FIELD ---
+
+    public LightningTrail(int color, float width, int lifetimeTicks, boolean isBranch, float yOffset, float xzOffsetFactor, boolean startsOnRightSide) {
         this.color = color;
         this.width = width;
-        this.maxLifetimeMillis = lifetimeTicks * 50L; // Convert ticks to milliseconds (1 tick = 50ms)
+        this.maxLifetimeMillis = lifetimeTicks * 50L;
         this.isBranch = isBranch;
+        this.yOffset = yOffset;
+        this.xzOffsetFactor = xzOffsetFactor;
+        this.startsOnRightSide = startsOnRightSide;
+    }
+
+    // Constructor for branches, which don't need their own origin points
+    public LightningTrail(int color, float width, int lifetimeTicks, boolean isBranch) {
+        this(color, width, lifetimeTicks, isBranch, 0, 0, false);
     }
 
     public Deque<TrailPoint> getPoints() {
@@ -60,17 +72,10 @@ public class LightningTrail {
         return maxLifetimeMillis;
     }
 
-    /**
-     * A trail is considered "alive" if it still has points to render.
-     * @return true if the trail has points, false otherwise.
-     */
     public boolean isAlive() {
         return !points.isEmpty();
     }
 
-    /**
-     * Ticks the trail, which involves trimming old points from the front of the deque.
-     */
     public void tick() {
         long currentTime = System.currentTimeMillis();
         while (!points.isEmpty() && (currentTime - points.peekFirst().creationTime) > maxLifetimeMillis) {
@@ -89,7 +94,7 @@ public class LightningTrail {
         }
 
         if (lastAddedPoint.distanceToSqr(newPosition) < 0.01) {
-            return; // Not moved far enough
+            return;
         }
 
         List<Vec3> segmentPoints = new ArrayList<>();
@@ -97,7 +102,7 @@ public class LightningTrail {
         segmentPoints.add(newPosition);
 
         float displacement = isBranch ? 0.1f : 0.2f;
-        int iterations = isBranch ? 1 : 2;
+        int iterations = isBranch ? 0 : 1;
 
         for (int i = 0; i < iterations; i++) {
             List<Vec3> newPoints = new ArrayList<>();
@@ -123,14 +128,11 @@ public class LightningTrail {
             TrailPoint newPoint = new TrailPoint(segmentPoints.get(i));
             this.points.addLast(newPoint);
 
-            // --- NEW BRANCHING LOGIC ---
-            // Only the main trunk can create branches.
-            if (!isBranch && random.nextFloat() < 0.15f) { // 15% chance to branch from a new point
+            if (newBranches != null && !isBranch && random.nextFloat() < 0.15f) {
                 LightningTrail branch = new LightningTrail(this.color, this.width * 0.6f, 10, true);
                 Vec3 branchEnd = newPoint.position.add(new Vec3(random.nextFloat() - 0.5, random.nextFloat() - 0.5, random.nextFloat() - 0.5).normalize().scale(2.0));
-                branch.generateSegments(branchEnd, new ArrayList<>()); // Generate the branch's points
+                branch.generateSegments(branchEnd, null);
                 newBranches.add(branch);
-                newPoint.hasBranched = true;
             }
         }
 
