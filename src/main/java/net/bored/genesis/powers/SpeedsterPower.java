@@ -38,14 +38,14 @@ public class SpeedsterPower implements ISkillPower {
     private final Map<Integer, ResourceLocation> abilityBindings = new HashMap<>();
 
     // --- Skill IDs ---
-    public static final ResourceLocation SKILL_SPEED_1 = new ResourceLocation(Genesis.MOD_ID, "speedster/speed_1");
-    public static final ResourceLocation SKILL_SPEED_2 = new ResourceLocation(Genesis.MOD_ID, "speedster/speed_2");
-    public static final ResourceLocation SKILL_SPEED_3 = new ResourceLocation(Genesis.MOD_ID, "speedster/speed_3");
-    public static final ResourceLocation SKILL_SPEED_4 = new ResourceLocation(Genesis.MOD_ID, "speedster/speed_4");
-    public static final ResourceLocation SKILL_SPEED_5 = new ResourceLocation(Genesis.MOD_ID, "speedster/speed_5");
-    public static final ResourceLocation SKILL_SPEED_6 = new ResourceLocation(Genesis.MOD_ID, "speedster/speed_6");
-    public static final ResourceLocation SKILL_SPEED_7 = new ResourceLocation(Genesis.MOD_ID, "speedster/speed_7");
-    public static final ResourceLocation SKILL_SPEED_8 = new ResourceLocation(Genesis.MOD_ID, "speedster/speed_8");
+    public static final ResourceLocation SKILL_SPEED_1 = new ResourceLocation(Genesis.MOD_ID, "speedster/speed_boost_1");
+    public static final ResourceLocation SKILL_SPEED_2 = new ResourceLocation(Genesis.MOD_ID, "speedster/speed_boost_2");
+    public static final ResourceLocation SKILL_SPEED_3 = new ResourceLocation(Genesis.MOD_ID, "speedster/speed_boost_3");
+    public static final ResourceLocation SKILL_SPEED_4 = new ResourceLocation(Genesis.MOD_ID, "speedster/speed_boost_4");
+    public static final ResourceLocation SKILL_SPEED_5 = new ResourceLocation(Genesis.MOD_ID, "speedster/speed_boost_5");
+    public static final ResourceLocation SKILL_SPEED_6 = new ResourceLocation(Genesis.MOD_ID, "speedster/speed_boost_6");
+    public static final ResourceLocation SKILL_SPEED_7 = new ResourceLocation(Genesis.MOD_ID, "speedster/speed_boost_7");
+    public static final ResourceLocation SKILL_SPEED_8 = new ResourceLocation(Genesis.MOD_ID, "speedster/speed_boost_8");
     public static final ResourceLocation SKILL_KINETIC_KICKSTART = new ResourceLocation(Genesis.MOD_ID, "speedster/kinetic_kickstart");
 
     private static final List<ResourceLocation> SPEED_SKILL_TIERS = ImmutableList.of(

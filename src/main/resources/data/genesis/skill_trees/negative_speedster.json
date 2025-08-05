@@ -106,8 +106,28 @@
       "prerequisites": [
         "genesis:negative_speedster/neg_speed_7"
       ],
+      "exclusions": [
+        "genesis:negative_speedster/entropic_sprint"
+      ],
       "x": 290,
       "y": 90,
+      "type": "PASSIVE"
+    },
+    {
+      "id": "genesis:negative_speedster/entropic_sprint",
+      "name": "Entropic Sprint",
+      "description": "Your sprint is empowered by chaotic energy.",
+      "info_description": "Your sprint is empowered by chaotic energy.",
+      "icon": "minecraft:fire_charge",
+      "cost": 3,
+      "prerequisites": [
+        "genesis:negative_speedster/neg_speed_7"
+      ],
+      "exclusions": [
+        "genesis:negative_speedster/neg_speed_8"
+      ],
+      "x": 290,
+      "y": 10,
       "type": "PASSIVE"
     },
     {
@@ -118,8 +138,10 @@
       "icon": "minecraft:diamond",
       "cost": 5,
       "prerequisites": [
-        "genesis:negative_speedster/neg_speed_8"
+        "genesis:negative_speedster/neg_speed_8",
+        "genesis:negative_speedster/entropic_sprint"
       ],
+      "unlocksWithAnyPrerequisite": true,
       "x": 330,
       "y": 50,
       "type": "PASSIVE",

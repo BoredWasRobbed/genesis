@@ -29,8 +29,9 @@ public class Skill {
     private final int y;
     private final SkillType type;
     private final boolean toggleable;
+    private final boolean unlocksWithAnyPrerequisite;
 
-    public Skill(ResourceLocation id, int cost, List<ResourceLocation> prerequisites, List<ResourceLocation> exclusions, String name, String description, String infoDescription, ResourceLocation icon, int iconWidth, int iconHeight, int x, int y, SkillType type, boolean toggleable) {
+    public Skill(ResourceLocation id, int cost, List<ResourceLocation> prerequisites, List<ResourceLocation> exclusions, String name, String description, String infoDescription, ResourceLocation icon, int iconWidth, int iconHeight, int x, int y, SkillType type, boolean toggleable, boolean unlocksWithAnyPrerequisite) {
         this.id = id;
         this.cost = cost;
         this.prerequisites = Collections.unmodifiableList(prerequisites);
@@ -45,6 +46,7 @@ public class Skill {
         this.y = y;
         this.type = type;
         this.toggleable = toggleable;
+        this.unlocksWithAnyPrerequisite = unlocksWithAnyPrerequisite;
     }
 
     public ResourceLocation getId() { return id; }
@@ -61,6 +63,8 @@ public class Skill {
     public int getSkillY() { return y; }
     public SkillType getType() { return type; }
     public boolean isToggleable() { return toggleable; }
+    public boolean unlocksWithAnyPrerequisite() { return unlocksWithAnyPrerequisite; }
+
 
     public static class Deserializer {
         String id;
@@ -77,6 +81,8 @@ public class Skill {
         int y;
         SkillType type = SkillType.PASSIVE;
         boolean toggleable = false;
+        boolean unlocksWithAnyPrerequisite = false;
+
 
         public Deserializer() {}
 
@@ -95,6 +101,7 @@ public class Skill {
             this.y = skill.getSkillY();
             this.type = skill.getType();
             this.toggleable = skill.isToggleable();
+            this.unlocksWithAnyPrerequisite = skill.unlocksWithAnyPrerequisite();
         }
 
         public Deserializer(FriendlyByteBuf buf) {
@@ -112,6 +119,7 @@ public class Skill {
             this.y = buf.readInt();
             this.type = buf.readEnum(SkillType.class);
             this.toggleable = buf.readBoolean();
+            this.unlocksWithAnyPrerequisite = buf.readBoolean();
         }
 
         public void toBytes(FriendlyByteBuf buf) {
@@ -129,6 +137,7 @@ public class Skill {
             buf.writeInt(y);
             buf.writeEnum(type);
             buf.writeBoolean(toggleable);
+            buf.writeBoolean(unlocksWithAnyPrerequisite);
         }
 
         public Skill build() {
@@ -138,7 +147,7 @@ public class Skill {
             List<ResourceLocation> exclusionIds = exclusions.stream()
                     .map(ResourceLocation::new)
                     .collect(Collectors.toList());
-            return new Skill(new ResourceLocation(id), cost, prereqIds, exclusionIds, name, description, info_description, new ResourceLocation(icon), icon_width, icon_height, x, y, type, toggleable);
+            return new Skill(new ResourceLocation(id), cost, prereqIds, exclusionIds, name, description, info_description, new ResourceLocation(icon), icon_width, icon_height, x, y, type, toggleable, unlocksWithAnyPrerequisite);
         }
     }
 }

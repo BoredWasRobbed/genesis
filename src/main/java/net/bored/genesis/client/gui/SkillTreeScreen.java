@@ -16,7 +16,6 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -35,7 +34,6 @@ public class SkillTreeScreen extends Screen {
 
     private final Map<ResourceLocation, SkillWidget> skillWidgets = new HashMap<>();
     private final Button[] abilitySlotButtons = new Button[5];
-    private final Set<ResourceLocation> excludedSkillsCache = new HashSet<>();
 
     private ResourceLocation selectedSkillForBinding = null;
 
@@ -73,41 +71,38 @@ public class SkillTreeScreen extends Screen {
         this.setFocused(null);
     }
 
-    private void getExcludedSkills(Set<ResourceLocation> excluded) {
-        for (ResourceLocation unlockedId : unlockedSkills) {
-            skillTree.getSkill(unlockedId).ifPresent(unlockedSkill -> {
-                for (ResourceLocation exclusionId : unlockedSkill.getExclusions()) {
-                    if (!excluded.contains(exclusionId)) {
-                        excluded.add(exclusionId);
-                        recursivelyExcludeChildren(exclusionId, excluded);
-                    }
-                }
-            });
-        }
-    }
-
-    private void recursivelyExcludeChildren(ResourceLocation parentId, Set<ResourceLocation> excluded) {
-        for (Skill potentialChild : skillTree.getAllSkills().values()) {
-            if (potentialChild.getPrerequisites().contains(parentId) && !excluded.contains(potentialChild.getId())) {
-                excluded.add(potentialChild.getId());
-                recursivelyExcludeChildren(potentialChild.getId(), excluded);
-            }
-        }
-    }
-
     private void populateSkillWidgets() {
         this.clearWidgets();
         this.skillWidgets.clear();
-        this.excludedSkillsCache.clear();
-        getExcludedSkills(this.excludedSkillsCache);
 
         for (Skill skill : skillTree.getAllSkills().values()) {
-            if (this.excludedSkillsCache.contains(skill.getId())) {
-                continue;
+            // Find if this skill is excluded by any unlocked skill
+            Optional<ResourceLocation> excludingSkillId = Optional.empty();
+            for (ResourceLocation unlockedSkillId : unlockedSkills) {
+                Optional<Skill> unlockedSkillOpt = skillTree.getSkill(unlockedSkillId);
+                if (unlockedSkillOpt.isPresent() && unlockedSkillOpt.get().getExclusions().contains(skill.getId())) {
+                    excludingSkillId = Optional.of(unlockedSkillId);
+                    break;
+                }
             }
 
+            if (excludingSkillId.isPresent()) {
+                Optional<Component> reason = skillTree.getSkill(excludingSkillId.get()).map(Skill::getName);
+                SkillWidget widget = new SkillWidget(skill.getSkillX(), skill.getSkillY(), skill, SkillWidget.SkillState.EXCLUDED, reason);
+                this.skillWidgets.put(skill.getId(), widget);
+                this.addRenderableWidget(widget);
+                continue; // Skip to the next skill
+            }
+
+
             SkillWidget.SkillState state;
-            boolean hasPrereqs = skill.getPrerequisites().stream().allMatch(unlockedSkills::contains);
+            boolean hasPrereqs;
+
+            if (skill.unlocksWithAnyPrerequisite()) {
+                hasPrereqs = skill.getPrerequisites().isEmpty() || skill.getPrerequisites().stream().anyMatch(unlockedSkills::contains);
+            } else {
+                hasPrereqs = skill.getPrerequisites().stream().allMatch(unlockedSkills::contains);
+            }
 
             if (unlockedSkills.contains(skill.getId())) {
                 state = (skill.isToggleable() && !activeSkills.contains(skill.getId()))
@@ -215,21 +210,20 @@ public class SkillTreeScreen extends Screen {
     }
 
     private void renderLines(GuiGraphics guiGraphics) {
-        for (Skill skill : this.skillTree.getAllSkills().values()) {
-            if (this.excludedSkillsCache.contains(skill.getId())) continue;
-
+        for (SkillWidget widget : this.skillWidgets.values()) {
+            Skill skill = widget.skill;
             for (ResourceLocation prereqId : skill.getPrerequisites()) {
-                if (this.excludedSkillsCache.contains(prereqId)) continue;
-
-                skillTree.getSkill(prereqId).ifPresent(prereqSkill -> {
+                SkillWidget prereqWidget = this.skillWidgets.get(prereqId);
+                if (prereqWidget != null) {
                     int x1 = skill.getSkillX() + 13;
                     int y1 = skill.getSkillY() + 13;
-                    int x2 = prereqSkill.getSkillX() + 13;
-                    int y2 = prereqSkill.getSkillY() + 13;
+                    int x2 = prereqWidget.getX() + 13;
+                    int y2 = prereqWidget.getY() + 13;
+
                     boolean unlocked = unlockedSkills.contains(skill.getId()) && unlockedSkills.contains(prereqId);
                     int color = unlocked ? 0xFFFFFFFF : 0xFF808080;
                     drawLine(guiGraphics, x1, y1, x2, y2, color);
-                });
+                }
             }
         }
     }
@@ -272,6 +266,9 @@ public class SkillTreeScreen extends Screen {
 
         for (SkillWidget widget : this.skillWidgets.values()) {
             if (widget.isMouseOver(worldMouseX, worldMouseY)) {
+                if (widget.state == SkillWidget.SkillState.EXCLUDED) {
+                    return true;
+                }
                 if (button == 0 && widget.state == SkillWidget.SkillState.CAN_UNLOCK) {
                     PacketHandler.sendToServer(new UnlockSkillC2SPacket(this.powerId, widget.skill.getId()));
                     this.setFocused(null);

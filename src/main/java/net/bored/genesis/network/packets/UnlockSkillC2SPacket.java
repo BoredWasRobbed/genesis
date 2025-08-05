@@ -87,16 +87,15 @@ public class UnlockSkillC2SPacket {
                             return;
                         }
 
-                        AtomicBoolean hasPrereqs = new AtomicBoolean(true);
-                        skill.getPrerequisites().forEach(prereqId -> {
-                            if (!skillPower.isSkillUnlocked(prereqId)) {
-                                player.displayClientMessage(Component.literal("Missing prerequisite").withStyle(ChatFormatting.RED), true);
-                                player.level().playSound(null, player.blockPosition(), SoundEvents.NOTE_BLOCK_DIDGERIDOO.get(), SoundSource.PLAYERS, 0.7F, 1.5F);
-                                hasPrereqs.set(false);
-                            }
-                        });
+                        boolean hasPrereqs;
+                        if (skill.unlocksWithAnyPrerequisite()) {
+                            hasPrereqs = skill.getPrerequisites().stream().anyMatch(skillPower::isSkillUnlocked);
+                        } else {
+                            hasPrereqs = skill.getPrerequisites().stream().allMatch(skillPower::isSkillUnlocked);
+                        }
 
-                        if (hasPrereqs.get()) {
+
+                        if (hasPrereqs) {
                             skillPower.unlockSkill(skillId);
                             player.displayClientMessage(Component.literal("Unlocked: ").withStyle(ChatFormatting.GREEN).append(skill.getName()), true);
                             player.level().playSound(null, player.blockPosition(), SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 0.75F, 1.0F);
@@ -105,6 +104,9 @@ public class UnlockSkillC2SPacket {
                                     .filter(skillPower::isSkillUnlocked)
                                     .collect(Collectors.toSet());
                             PacketHandler.sendToPlayer(new UpdateSkillTreeS2CPacket(skillPower.getSkillPoints(), unlocked, skillPower.getActiveSkills(), skillPower.getLevel(), skillPower.getExperience(), skillPower.getXpNeededForNextLevel(), skillPower.getAbilityBindings()), player);
+                        } else {
+                            player.displayClientMessage(Component.literal("Missing prerequisite").withStyle(ChatFormatting.RED), true);
+                            player.level().playSound(null, player.blockPosition(), SoundEvents.NOTE_BLOCK_DIDGERIDOO.get(), SoundSource.PLAYERS, 0.7F, 1.5F);
                         }
                     });
                 });
