@@ -100,6 +100,10 @@ public class UnlockSkillC2SPacket {
                             player.displayClientMessage(Component.literal("Unlocked: ").withStyle(ChatFormatting.GREEN).append(skill.getName()), true);
                             player.level().playSound(null, player.blockPosition(), SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 0.75F, 1.0F);
 
+                            // --- FIX: Send a full data sync to the client ---
+                            PacketHandler.sendToPlayer(new SyncPowerDataS2CPacket(powerId, power.serializeNBT()), player);
+
+                            // Also update the GUI if it's open
                             Set<ResourceLocation> unlocked = tree.getAllSkills().keySet().stream()
                                     .filter(skillPower::isSkillUnlocked)
                                     .collect(Collectors.toSet());

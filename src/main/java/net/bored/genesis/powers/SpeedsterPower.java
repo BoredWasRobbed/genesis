@@ -15,6 +15,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
@@ -22,6 +23,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.common.ForgeMod;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -42,6 +44,7 @@ public class SpeedsterPower implements ISkillPower {
     private int trailColor = 0xFFFFFF00; // Default Yellow
 
     // --- Skill IDs ---
+    public static final ResourceLocation POWER_ID = new ResourceLocation(Genesis.MOD_ID, "speedster");
     public static final ResourceLocation SKILL_SPEED_1 = new ResourceLocation(Genesis.MOD_ID, "speedster/speed_boost_1");
     public static final ResourceLocation SKILL_SPEED_2 = new ResourceLocation(Genesis.MOD_ID, "speedster/speed_boost_2");
     public static final ResourceLocation SKILL_SPEED_3 = new ResourceLocation(Genesis.MOD_ID, "speedster/speed_boost_3");
@@ -50,11 +53,22 @@ public class SpeedsterPower implements ISkillPower {
     public static final ResourceLocation SKILL_SPEED_6 = new ResourceLocation(Genesis.MOD_ID, "speedster/speed_boost_6");
     public static final ResourceLocation SKILL_SPEED_7 = new ResourceLocation(Genesis.MOD_ID, "speedster/speed_boost_7");
     public static final ResourceLocation SKILL_SPEED_8 = new ResourceLocation(Genesis.MOD_ID, "speedster/speed_boost_8");
-    public static final ResourceLocation SKILL_KINETIC_KICKSTART = new ResourceLocation(Genesis.MOD_ID, "speedster/kinetic_kickstart");
+    public static final ResourceLocation SKILL_SPEED_9 = new ResourceLocation(Genesis.MOD_ID, "speedster/speed_boost_9");
+    public static final ResourceLocation SKILL_SPEED_10 = new ResourceLocation(Genesis.MOD_ID, "speedster/speed_boost_10");
+    public static final ResourceLocation SKILL_SPEED_HEALING_1 = new ResourceLocation(Genesis.MOD_ID, "speedster/speed_healing_1");
+    public static final ResourceLocation SKILL_SPEED_HEALING_2 = new ResourceLocation(Genesis.MOD_ID, "speedster/speed_healing_2");
+    public static final ResourceLocation SKILL_SPEED_HEALING_3 = new ResourceLocation(Genesis.MOD_ID, "speedster/speed_healing_3");
+    public static final ResourceLocation SKILL_ACCELERATED_METABOLISM_1 = new ResourceLocation(Genesis.MOD_ID, "speedster/accelerated_metabolism_1");
+    public static final ResourceLocation SKILL_ACCELERATED_METABOLISM_2 = new ResourceLocation(Genesis.MOD_ID, "speedster/accelerated_metabolism_2");
+    public static final ResourceLocation SKILL_ACCELERATED_METABOLISM_3 = new ResourceLocation(Genesis.MOD_ID, "speedster/accelerated_metabolism_3");
+    public static final ResourceLocation SKILL_RAPID_CONSTRUCTION = new ResourceLocation(Genesis.MOD_ID, "speedster/rapid_construction");
+    public static final ResourceLocation SKILL_CALORIE_EFFICIENT = new ResourceLocation(Genesis.MOD_ID, "speedster/calorie_efficient");
+
 
     private static final List<ResourceLocation> SPEED_SKILL_TIERS = ImmutableList.of(
             SKILL_SPEED_1, SKILL_SPEED_2, SKILL_SPEED_3, SKILL_SPEED_4,
-            SKILL_SPEED_5, SKILL_SPEED_6, SKILL_SPEED_7, SKILL_SPEED_8
+            SKILL_SPEED_5, SKILL_SPEED_6, SKILL_SPEED_7, SKILL_SPEED_8,
+            SKILL_SPEED_9, SKILL_SPEED_10
     );
 
     // --- Power State ---
@@ -67,7 +81,8 @@ public class SpeedsterPower implements ISkillPower {
 
     private boolean isSpeedActive = true;
     private int sprintTicks = 0;
-    private int currentSpeedTier = 8;
+    private int currentSpeedTier = 10;
+    private int healingTicker = 0;
 
     // --- Velocity-9 State ---
     private int v9Toxicity = 0;
@@ -94,6 +109,53 @@ public class SpeedsterPower implements ISkillPower {
         handleWaterRunning(player);
         handleSpeedModifiers(player);
         handleV9Effects(player);
+        handleSpeedHealing(player);
+        handleAcceleratedMetabolism(player);
+    }
+
+    private void handleAcceleratedMetabolism(Player player) {
+        if (!isSpeedActive || player.getActiveEffects().isEmpty()) {
+            return;
+        }
+
+        int ticksToAdvance = 0;
+        if (isSkillUnlocked(SKILL_ACCELERATED_METABOLISM_3)) {
+            ticksToAdvance = 19; // Effectively 20x faster (1 normal tick + 19 extra)
+        } else if (isSkillUnlocked(SKILL_ACCELERATED_METABOLISM_2)) {
+            ticksToAdvance = 9;  // Effectively 10x faster
+        } else if (isSkillUnlocked(SKILL_ACCELERATED_METABOLISM_1)) {
+            ticksToAdvance = 4;  // Effectively 5x faster
+        }
+
+        if (ticksToAdvance > 0) {
+            for (MobEffectInstance effect : new ArrayList<>(player.getActiveEffects())) {
+                if (effect.getDuration() > 1) {
+                    for (int i = 0; i < ticksToAdvance; i++) {
+                        // This safely ticks down the effect duration
+                        effect.tick(player, () -> {});
+                    }
+                }
+            }
+        }
+    }
+
+    private void handleSpeedHealing(Player player) {
+        if (!isSpeedActive || player.getHealth() >= player.getMaxHealth()) {
+            return;
+        }
+
+        healingTicker++;
+
+        if (isSkillUnlocked(SKILL_SPEED_HEALING_3) && healingTicker >= 20) {
+            player.heal(1.0f);
+            healingTicker = 0;
+        } else if (isSkillUnlocked(SKILL_SPEED_HEALING_2) && healingTicker >= 60) {
+            player.heal(1.0f);
+            healingTicker = 0;
+        } else if (isSkillUnlocked(SKILL_SPEED_HEALING_1) && healingTicker >= 100) {
+            player.heal(1.0f);
+            healingTicker = 0;
+        }
     }
 
     private void handleSpeedModifiers(Player player) {
@@ -122,6 +184,8 @@ public class SpeedsterPower implements ISkillPower {
                 case 6: baseBonus = 5.0; break;
                 case 7: baseBonus = 6.0; break;
                 case 8: baseBonus = 7.0; break;
+                case 9: baseBonus = 8.0; break;
+                case 10: baseBonus = 9.0; break;
             }
 
             if (baseBonus > 0) {
@@ -132,14 +196,8 @@ public class SpeedsterPower implements ISkillPower {
             if (player.isSprinting()) {
                 double sprintBonusMax = 0.30; // +30% sprint boost
                 double sprintAcceleration = 0.01;
-                double currentSprintBonus;
-
-                if (isSkillActive(SKILL_KINETIC_KICKSTART)) {
-                    currentSprintBonus = sprintBonusMax;
-                } else {
-                    sprintTicks++;
-                    currentSprintBonus = Math.min(sprintBonusMax, sprintTicks * sprintAcceleration);
-                }
+                sprintTicks++;
+                double currentSprintBonus = Math.min(sprintBonusMax, sprintTicks * sprintAcceleration);
 
                 AttributeModifier sprintModifier = new AttributeModifier(SPRINT_BOOST_UUID, "Speedster Sprint Boost", currentSprintBonus, AttributeModifier.Operation.MULTIPLY_TOTAL);
                 speedAttribute.addPermanentModifier(sprintModifier);

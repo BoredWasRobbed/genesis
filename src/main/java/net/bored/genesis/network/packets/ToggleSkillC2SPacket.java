@@ -46,7 +46,11 @@ public class ToggleSkillC2SPacket {
                         .findFirst()
                         .ifPresent(skillPower -> {
                             skillPower.toggleSkill(this.skillId);
-                            // Send a sync packet back to the client to confirm the change
+
+                            // --- FIX: Send a full data sync to the client ---
+                            PacketHandler.sendToPlayer(new SyncPowerDataS2CPacket(skillPower.getRegistryName(), skillPower.serializeNBT()), player);
+
+                            // Also update the GUI if it's open
                             Genesis.SKILL_TREE_MANAGER.getSkillTree(skillPower.getSkillTreeId()).ifPresent(tree -> {
                                 Set<ResourceLocation> unlocked = tree.getAllSkills().keySet().stream()
                                         .filter(skillPower::isSkillUnlocked)

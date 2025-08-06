@@ -1,0 +1,13 @@
+{
+  "required": true,
+  "package": "net.bored.genesis.mixin",
+  "compatibilityLevel": "JAVA_17",
+  "mixins": [
+    "LivingEntityMixin",
+    "accessor.LivingEntityInvoker",
+    "MinecraftMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

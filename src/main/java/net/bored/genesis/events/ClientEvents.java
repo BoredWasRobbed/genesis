@@ -1,11 +1,15 @@
 package net.bored.genesis.events;
 
 import net.bored.genesis.Genesis;
+import net.bored.genesis.core.capabilities.PowerCapability;
+import net.bored.genesis.mixin.MinecraftMixin;
+import net.bored.genesis.mixin.accessor.LivingEntityInvoker;
 import net.bored.genesis.network.PacketHandler;
 import net.bored.genesis.network.packets.ActivateAbilityC2SPacket;
 import net.bored.genesis.network.packets.ActivatePowerC2SPacket;
 import net.bored.genesis.network.packets.CycleTopSpeedC2SPacket;
 import net.bored.genesis.network.packets.RequestOpenSkillTreeC2SPacket;
+import net.bored.genesis.powers.SpeedsterPower;
 import net.bored.genesis.util.Keybindings;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
@@ -52,10 +56,25 @@ public class ClientEvents {
 
     @SubscribeEvent
     public static void onClientTick(TickEvent.ClientTickEvent event) {
-        if (event.phase == TickEvent.Phase.END && Minecraft.getInstance().player != null) {
-            // --- FIX: Use the safely instantiated handler from the main mod class ---
-            if (Genesis.ClientModEvents.lightningTrailHandler != null) {
-                Genesis.ClientModEvents.lightningTrailHandler.onClientTick();
+        if (event.phase == TickEvent.Phase.END) {
+            Minecraft mc = Minecraft.getInstance();
+            if (mc.player != null) {
+                // Handle Lightning Trail
+                if (Genesis.ClientModEvents.lightningTrailHandler != null) {
+                    Genesis.ClientModEvents.lightningTrailHandler.onClientTick();
+                }
+
+                // Handle Rapid Construction
+                mc.player.getCapability(PowerCapability.POWER_MANAGER).ifPresent(powerManager -> {
+                    powerManager.getPower(SpeedsterPower.POWER_ID).ifPresent(power -> {
+                        if (power instanceof SpeedsterPower speedsterPower) {
+                            if (speedsterPower.isSkillUnlocked(SpeedsterPower.SKILL_RAPID_CONSTRUCTION)) {
+                                // Access Transformer makes this available
+                                ((MinecraftMixin)(Object) mc.player).genesis$setRightClickDelay(1);
+                            }
+                        }
+                    });
+                });
             }
         }
     }
