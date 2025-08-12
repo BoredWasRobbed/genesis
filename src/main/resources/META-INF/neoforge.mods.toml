@@ -1,0 +1,42 @@
+# The name of the mod loader type to load
+modLoader="javafml" #mandatory
+
+# A version range to match for said mod loader
+loaderVersion="[1,)" #mandatory. This is a safe default.
+
+# The license for your mod.
+license="All Rights Reserved" #mandatory
+
+# A list of mods
+[[mods]] #mandatory
+
+# The modId of the mod
+modId="genesis" #mandatory <-- IMPORTANT: This should match your @Mod annotation
+
+# The version number of the mod
+version="1.0.0" #mandatory
+
+# A display name for the mod
+displayName="Genesis" #mandatory
+
+# A text field displayed in the mod UI
+authors="YourName" #optional
+
+# The description text for the mod
+description='''A new beginning for Minecraft.''' #mandatory
+
+# A dependency on NeoForge
+[[dependencies.genesis]] #optional <-- IMPORTANT: Note that ${mod_id} is replaced with "genesis"
+modId="neoforge" #mandatory
+type="required" #mandatory
+versionRange="[21.1,)" #mandatory. This should match your NeoForge version. Check build.gradle if unsure.
+ordering="NONE"
+side="BOTH"
+
+# A dependency on Minecraft
+[[dependencies.genesis]] #optional <-- IMPORTANT: Note that ${mod_id} is replaced with "genesis"
+modId="minecraft"
+type="required"
+versionRange="[1.21.1,)" #mandatory. This should match your Minecraft version.
+ordering="NONE"
+side="BOTH"
